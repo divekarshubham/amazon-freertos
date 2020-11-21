@@ -24,6 +24,7 @@
 #include "ota.h"
 #include "ota_platform_interface.h"
 #include "ota_interface_private.h"
+
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
  * without a custom config. If a custom config is provided, the
  * OTA_DO_NOT_USE_CUSTOM_CONFIG macro should not be defined. */
@@ -59,16 +60,16 @@
 
 /* Check configuration for memory constraints provided SPIRAM is not enabled */
 #if !CONFIG_SPIRAM_SUPPORT
-#if (configENABLED_DATA_PROTOCOLS & OTA_DATA_OVER_HTTP) && (configENABLED_NETWORKS & AWSIOT_NETWORK_TYPE_BLE)
-    #error "Cannot enable OTA data over HTTP together with BLE because of not enough heap."
-#endif
-#endif // !CONFIG_SPIRAM_SUPPORT
+    #if ( configENABLED_DATA_PROTOCOLS & OTA_DATA_OVER_HTTP ) && ( configENABLED_NETWORKS & AWSIOT_NETWORK_TYPE_BLE )
+        #error "Cannot enable OTA data over HTTP together with BLE because of not enough heap."
+    #endif
+#endif /* !CONFIG_SPIRAM_SUPPORT */
 
 /*
  * Includes 4 bytes of version field, followed by 64 bytes of signature
  * (Rest 12 bytes for padding to make it 16 byte aligned for flash encryption)
  */
-#define ECDSA_SIG_SIZE          80
+#define ECDSA_SIG_SIZE    80
 
 typedef struct
 {
@@ -101,8 +102,8 @@ static CK_RV prvGetCertificate( const char * pcLabelName,
                                 uint32_t * pulDataSize );
 
 static OtaErr_t asn1_to_raw_ecdsa( uint8_t * signature,
-                                    uint16_t sig_len,
-                                    uint8_t * out_signature )
+                                   uint16_t sig_len,
+                                   uint8_t * out_signature )
 {
     int ret = 0;
     const unsigned char * end = signature + sig_len;
