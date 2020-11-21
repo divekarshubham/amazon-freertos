@@ -29,12 +29,14 @@
 /*lint -e9045 Ignore advisories about non-hidden definitions in header files. */
 
 #include "ota_platform_interface.h"
+
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
  * without a custom config. If a custom config is provided, the
  * OTA_DO_NOT_USE_CUSTOM_CONFIG macro should not be defined. */
 #ifndef OTA_DO_NOT_USE_CUSTOM_CONFIG
     #include "ota_config.h"
 #endif
+
 /* Include config defaults header to get default values of configs not defined
  * in ota_config.h file. */
 #include "ota_config_defaults.h"
@@ -129,8 +131,8 @@ static const uint32_t ulFlashImageMaxSize = ( uint32_t ) ( ( ( uint32_t ) __KSEG
 typedef struct
 {
     const OtaFileContext_t * pxCurOTAFile; /* Current OTA file to be processed. */
-    uint32_t ulLowImageOffset;              /* Lowest offset/address in the application image. */
-    uint32_t ulHighImageOffset;             /* Highest offset/address in the application image. */
+    uint32_t ulLowImageOffset;             /* Lowest offset/address in the application image. */
+    uint32_t ulHighImageOffset;            /* Highest offset/address in the application image. */
 } OTA_OperationDescriptor_t;
 
 /* NOTE that this implementation supports only one OTA at a time since it uses a single static instance. */
@@ -195,7 +197,7 @@ static bool_t prvContextUpdateImageHeaderAndTrailer( OtaFileContext_t * C )
                                                            ( const uint8_t * ) &xImgHeader,
                                                            sizeof( xImgHeader ) );
 
-    LogDebug( ( "OTA Sequence Number: %d",  pxImgDesc->ulSequenceNum ) );
+    LogDebug( ( "OTA Sequence Number: %d", pxImgDesc->ulSequenceNum ) );
     LogDebug( ( "Image - Start: 0x%08x, End: 0x%08x",
                 pxImgDesc->pvStartAddr, pxImgDesc->pvEndAddr ) );
 
@@ -218,7 +220,7 @@ static bool_t prvContextUpdateImageHeaderAndTrailer( OtaFileContext_t * C )
 
         bProgResult = AWS_FlashProgramBlock( pxAppImgTrailerPtr, ( const uint8_t * ) &xImgTrailer, sizeof( xImgTrailer ) );
 
-        LogDebug( ( "Writing Trailer at: 0x%08x",  pxAppImgTrailerPtr ) );
+        LogDebug( ( "Writing Trailer at: 0x%08x", pxAppImgTrailerPtr ) );
     }
 
     return bProgResult;
@@ -314,7 +316,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
         sReturnVal = MCHP_ERR_INVALID_CONTEXT;
     }
     else if( ( ulOffset + ulBlockSize ) > ulFlashImageMaxSize )
-    {   /* invalid address. */
+    { /* invalid address. */
         sReturnVal = MCHP_ERR_ADDR_OUT_OF_RANGE;
     }
     else /* Update the image offsets. */
@@ -342,11 +344,11 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
         }
 
         if( AWS_FlashProgramBlock( pucFlashAddr, pucWriteData, ulWriteBlockSzie ) == ( bool_t ) pdFALSE )
-        {   /* Failed to program block to flash. */
+        { /* Failed to program block to flash. */
             sReturnVal = MCHP_ERR_FLASH_WRITE_FAIL;
         }
         else
-        {   /* Success. */
+        { /* Success. */
             sReturnVal = ( int16_t ) ulBlockSize;
         }
     }
@@ -389,7 +391,7 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
     if( OTA_ERR_NONE == eResult )
     {
         /* Update the image header. */
-        LogDebug( ( "%s signature verification passed.",  OTA_JsonFileSignatureKey ) );
+        LogDebug( ( "%s signature verification passed.", OTA_JsonFileSignatureKey ) );
 
         if( prvContextUpdateImageHeaderAndTrailer( C ) == ( bool_t ) pdTRUE )
         {
@@ -607,12 +609,12 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 
     if( ( xResult == CKR_OK ) && ( pucSignerCert != NULL ) )
     {
-        LogDebug( ( "Using cert with label: %s OK",  ( const char * ) pucCertName ) );
+        LogDebug( ( "Using cert with label: %s OK", ( const char * ) pucCertName ) );
     }
     else
     {
         LogWarn( ( "No such certificate file: %s. Using aws_ota_codesigner_certificate.h.",
-                    ( const char * ) pucCertName ) );
+                   ( const char * ) pucCertName ) );
 
         /* Allocate memory for the signer certificate plus a terminating zero so we can copy it and return to the caller. */
         ulCertSize = sizeof( signingcredentialSIGNING_CERTIFICATE_PEM );
@@ -628,7 +630,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
         }
         else
         {
-            LogError( ( "No memory for certificate of size %d!",  ulCertSize ) );
+            LogError( ( "No memory for certificate of size %d!", ulCertSize ) );
         }
     }
 
@@ -757,7 +759,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
         }
         else
         {
-            LogWarn( ( "Unknown state received %d.",  ( int32_t ) eState ) );
+            LogWarn( ( "Unknown state received %d.", ( int32_t ) eState ) );
             eResult = OTA_ERR_BAD_IMAGE_STATE;
         }
     }
@@ -771,7 +773,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
         {
             /* We are not in self-test mode so can not set the image in upper bank as valid.  */
             LogWarn( ( "Not in commit pending so can not mark image valid (%d).",
-                        MCHP_ERR_NOT_PENDING_COMMIT ) );
+                       MCHP_ERR_NOT_PENDING_COMMIT ) );
             eResult = ( uint32_t ) OTA_ERR_COMMIT_FAILED | ( ( ( uint32_t ) MCHP_ERR_NOT_PENDING_COMMIT ) & ( uint32_t ) OTA_PAL_ERR_MASK );
         }
         else if( eState == eOTA_ImageState_Rejected )
