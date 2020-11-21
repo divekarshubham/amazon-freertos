@@ -24,12 +24,12 @@
  */
 
 /**
- * @file aws_ota_agent_config.h
+ * @file ota_config.h
  * @brief OTA user configurable settings.
  */
 
-#ifndef _AWS_OTA_AGENT_CONFIG_H_
-#define _AWS_OTA_AGENT_CONFIG_H_
+#ifndef OTA_CONFIG_H_
+#define OTA_CONFIG_H_
 
 /**
  * @brief The number of words allocated to the stack for the OTA agent.
@@ -103,7 +103,7 @@
  *
  * @note This must be set to a value larger than zero.
  */
-#define otaconfigMAX_NUM_BLOCKS_REQUEST        1U
+#define otaconfigMAX_NUM_BLOCKS_REQUEST         1U
 
 /**
  * @brief The maximum number of requests allowed to send without a response before we abort.
@@ -168,4 +168,4 @@
 
 #define configOTA_PRIMARY_DATA_PROTOCOL     ( OTA_DATA_OVER_MQTT )
 
-#endif /* _AWS_OTA_AGENT_CONFIG_H_ */
+#endif /* OTA_CONFIG_H_ */
