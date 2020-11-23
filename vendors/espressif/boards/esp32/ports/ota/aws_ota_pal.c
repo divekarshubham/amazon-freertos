@@ -659,22 +659,22 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 
     switch( eState )
     {
-        case eOTA_ImageState_Accepted:
+        case OtaImageStateAccepted:
             ESP_LOGI( TAG, "Set image as valid one!" );
             state = ESP_OTA_IMG_VALID;
             break;
 
-        case eOTA_ImageState_Rejected:
+        case OtaImageStateRejected:
             ESP_LOGW( TAG, "Set image as invalid!" );
             state = ESP_OTA_IMG_INVALID;
             break;
 
-        case eOTA_ImageState_Aborted:
+        case OtaImageStateAborted:
             ESP_LOGW( TAG, "Set image as aborted!" );
             state = ESP_OTA_IMG_ABORTED;
             break;
 
-        case eOTA_ImageState_Testing:
+        case OtaImageStateTesting:
             ESP_LOGW( TAG, "Set image as testing!" );
             return OTA_ERR_NONE;
 
@@ -723,7 +723,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
     }
     else
     {
-        if( ( eState == eOTA_ImageState_Accepted ) && ( ota_ctx.valid_image == false ) )
+        if( ( eState == OtaImageStateAccepted ) && ( ota_ctx.valid_image == false ) )
         {
             /* Incorrect update image or not yet validated */
             return OTA_ERR_COMMIT_FAILED;
