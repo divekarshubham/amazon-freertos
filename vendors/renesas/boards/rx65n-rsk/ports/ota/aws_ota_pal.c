@@ -30,19 +30,29 @@
 
 /* Amazon FreeRTOS include. */
 #include "FreeRTOS.h"
-#include "aws_iot_ota_agent.h"
+#include "ota.h"
 #include "iot_crypto.h"
 #include "core_pkcs11.h"
 #include "aws_ota_codesigner_certificate.h"
-#include "aws_ota_agent_config.h"
+
+/* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
+ * without a custom config. If a custom config is provided, the
+ * OTA_DO_NOT_USE_CUSTOM_CONFIG macro should not be defined. */
+#ifndef OTA_DO_NOT_USE_CUSTOM_CONFIG
+    #include "ota_config.h"
+#endif
+
+/* Include config defaults header to get default values of configs not defined
+ * in ota_config.h file. */
+#include "ota_config_defaults.h"
 
 /* Renesas RX Driver Package include */
 #include "platform.h"
 #include "r_flash_rx_if.h"
 
 /* Specify the OTA signature algorithm we support on this platform. */
-//const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha1-rsa";   /* FIX ME. */
-const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";   /* FIX ME. */
+//const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha1-rsa";   /* FIX ME. */
+const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";   /* FIX ME. */
 
 
 /* The static functions below (prvPAL_CheckFileSignature and prvPAL_ReadAndAssumeCertificate) 
@@ -63,12 +73,12 @@ const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-
  * @param[in] C OTA file context information.
  * 
  * @return Below are the valid return values for this function.
- * kOTA_Err_None if the signature verification passes.
- * kOTA_Err_SignatureCheckFailed if the signature verification fails.
- * kOTA_Err_BadSignerCert if the if the signature verification certificate cannot be read.
+ * OTA_ERR_NONE if the signature verification passes.
+ * OTA_ERR_SIGNATURE_CHECK_FAILED if the signature verification fails.
+ * OTA_ERR_BAD_SIGNER_CERT if the if the signature verification certificate cannot be read.
  * 
  */
-static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C );
+static OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C );
 
 /**
  * @brief Read the specified signer certificate from the filesystem into a local buffer.
@@ -154,8 +164,8 @@ typedef struct _load_firmware_control_block {
 	uint32_t status;
 	uint32_t processed_byte;
 	uint32_t total_image_length;
-	OTA_ImageState_t eSavedAgentState;
-	OTA_FileContext_t * OTA_FileContext;
+	OtaImageState_t eSavedAgentState;
+	OtaFileContext_t * OTA_FileContext;
 }LOAD_FIRMWARE_CONTROL_BLOCK;
 
 typedef struct _flash_block
@@ -197,9 +207,9 @@ typedef struct _firmware_update_control_block
     uint8_t reserved2[236];
 }FIRMWARE_UPDATE_CONTROL_BLOCK;
 
-static int32_t ota_context_validate( OTA_FileContext_t * C );
-static int32_t ota_context_update_user_firmware_header( OTA_FileContext_t * C );
-static void ota_context_close( OTA_FileContext_t * C );
+static int32_t ota_context_validate( OtaFileContext_t * C );
+static int32_t ota_context_update_user_firmware_header( OtaFileContext_t * C );
+static void ota_context_close( OtaFileContext_t * C );
 static void ota_flashing_task( void * pvParameters );
 static void ota_flashing_callback(void *event);
 static void ota_header_flashing_callback(void *event);
@@ -229,17 +239,16 @@ static volatile uint32_t gs_header_flashing_task;
 
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_CreateFileForRx( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CreateFileForRx" );
-    OTA_LOG_L1("[%s] is called.\r\n", OTA_METHOD_NAME);
-    OTA_LOG_L1("Compiled in [%s] [%s].\r\n", __DATE__, __TIME__);
-    OTA_Err_t eResult = kOTA_Err_Uninitialized;
+    LogDebug( ( "prvPAL_CreateFileForRx is called." ) );
+    LogDebug( ( "Compiled in [%s] [%s].", __DATE__, __TIME__ ) );
+    OtaErr_t eResult = OTA_ERR_UNINITIALIZED;
     flash_interrupt_config_t cb_func_info;
 
     if( C != NULL )
     {
-        if( C->pucFilePath != NULL )
+        if( C->pFilePath != NULL )
         {
 			/* create task/queue/semaphore for flashing */
 			xQueue = xQueueCreate(otaconfigMAX_NUM_BLOCKS_REQUEST, sizeof(PACKET_BLOCK_FOR_QUEUE));
@@ -259,8 +268,8 @@ OTA_Err_t prvPAL_CreateFileForRx( OTA_FileContext_t * const C )
 				gs_header_flashing_task = OTA_FLASHING_IN_PROGRESS;
 				if (R_FLASH_Erase((flash_block_address_t)BOOT_LOADER_UPDATE_TEMPORARY_AREA_HIGH_ADDRESS, BOOT_LOADER_UPDATE_TARGET_BLOCK_NUMBER) != FLASH_SUCCESS)
 				{
-					eResult = kOTA_Err_RxFileCreateFailed;
-					OTA_LOG_L1( "[%s] ERROR - R_FLASH_Erase() returns error.\r\n", OTA_METHOD_NAME );
+					eResult = OTA_ERR_RX_FILE_CREATE_FAILED;
+					LogError( ( "R_FLASH_Erase() returns error." ) );
 				}
 				while(OTA_FLASHING_IN_PROGRESS == gs_header_flashing_task);
 				R_FLASH_Close();
@@ -270,46 +279,45 @@ OTA_Err_t prvPAL_CreateFileForRx( OTA_FileContext_t * const C )
 				R_FLASH_Control(FLASH_CMD_SET_BGO_CALLBACK, (void *)&cb_func_info);
 				load_firmware_control_block.OTA_FileContext = C;
 				load_firmware_control_block.total_image_length = 0;
-				load_firmware_control_block.eSavedAgentState = eOTA_ImageState_Unknown;
-				OTA_LOG_L1( "[%s] Receive file created.\r\n", OTA_METHOD_NAME );
-				C->pucFile = (uint8_t *)&load_firmware_control_block;
-				eResult = kOTA_Err_None;
+				load_firmware_control_block.eSavedAgentState = OtaImageStateUnknown;
+				LogInfo( ( "Receive file created." ) );
+				C->pFile = (uint8_t *)&load_firmware_control_block;
+				eResult = OTA_ERR_NONE;
 			}
 			else
 			{
-				eResult = kOTA_Err_RxFileCreateFailed;
-				OTA_LOG_L1( "[%s] ERROR - R_FLASH_Open() returns error.\r\n", OTA_METHOD_NAME );
+				eResult = OTA_ERR_RX_FILE_CREATE_FAILED;
+				LogError( ( "R_FLASH_Open() returns error." ) );
 			}
 		}
         else
         {
-            eResult = kOTA_Err_RxFileCreateFailed;
-            OTA_LOG_L1( "[%s] ERROR - Invalid context provided.\r\n", OTA_METHOD_NAME );
+            eResult = OTA_ERR_RX_FILE_CREATE_FAILED;
+            LogError( ( "Invalid context provided." ) );
         }
     }
     else
     {
-        eResult = kOTA_Err_RxFileCreateFailed;
-        OTA_LOG_L1( "[%s] ERROR - Invalid context provided.\r\n", OTA_METHOD_NAME );
+        eResult = OTA_ERR_RX_FILE_CREATE_FAILED;
+        LogError( ( "Invalid context provided." ) );
     }
 
     return eResult;
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_Abort( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_Abort" );
-    OTA_LOG_L1("[%s] is called.\r\n", OTA_METHOD_NAME);
+    LogDebug( ( "prvPAL_Abort is called." ) );
 
-    OTA_Err_t eResult = kOTA_Err_None;
+    OtaErr_t eResult = OTA_ERR_NONE;
 
     if( ota_context_validate(C) == R_OTA_ERR_INVALID_CONTEXT )
     {
-        eResult = kOTA_Err_FileClose;
+        eResult = OTA_ERR_FILE_CLOSE;
     }
 
-	if (kOTA_Err_None == eResult)
+	if (OTA_ERR_NONE == eResult)
 	{
 		/* delete task/queue for flashing */
 		if (NULL != xTask)
@@ -342,7 +350,7 @@ OTA_Err_t prvPAL_Abort( OTA_FileContext_t * const C )
 /*-----------------------------------------------------------*/
 
 /* Write a block of data to the specified file. */
-int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
+int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pacData,
                            uint32_t ulBlockSize )
@@ -352,8 +360,7 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
     static uint8_t flash_block_array[FLASH_CF_MIN_PGM_SIZE];
 	uint8_t *packet_buffer;
 
-    DEFINE_OTA_METHOD_NAME( "prvPAL_WriteBlock" );
-	OTA_LOG_L1("[%s] is called.\r\n", OTA_METHOD_NAME);
+	LogDebug( ( "prvPAL_WriteBlock is called." ) );
 
 	xSemaphoreTake(xSemaphoreWriteBlock, portMAX_DELAY);
 
@@ -371,7 +378,7 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
 		else
 		{
 			vPortFree(packet_block_for_queue1.p_packet);
-			OTA_LOG_L1("OTA flashing queue send error.\r\n");
+			LogError( ( "OTA flashing queue send error." ) );
 			sNumBytesWritten = R_OTA_ERR_QUEUE_SEND_FAIL;
 		}
 	}
@@ -396,7 +403,7 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
 					if(xQueueSend(xQueue, &packet_block_for_queue1, NULL) != pdPASS)
 					{
 						vPortFree(packet_block_for_queue1.p_packet);
-						OTA_LOG_L1("OTA flashing queue send error.\r\n");
+						LogError( ( "OTA flashing queue send error." ) );
 						sNumBytesWritten = R_OTA_ERR_QUEUE_SEND_FAIL;
 						break;
 					}
@@ -422,37 +429,35 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 {
-	OTA_Err_t eResult = kOTA_Err_None;
-
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CloseFile" );
+	OtaErr_t eResult = OTA_ERR_NONE;
 
     if( ota_context_validate(C) == R_OTA_ERR_INVALID_CONTEXT )
     {
-        eResult = kOTA_Err_FileClose;
+        eResult = OTA_ERR_FILE_CLOSE;
     }
 
-    if( C->pxSignature != NULL )
+    if( C->pSignature != NULL )
     {
 		eResult = prvPAL_CheckFileSignature(C);
 	}
 	else
     {
-        eResult = kOTA_Err_SignatureCheckFailed;
+        eResult = OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
 
-	if (kOTA_Err_None == eResult)
+	if (OTA_ERR_NONE == eResult)
 	{
 		/* Update the user firmware header. */
 		if (ota_context_update_user_firmware_header(C) == R_OTA_ERR_NONE)
 		{
-			OTA_LOG_L1( "[%s] User firmware header updated.\r\n", OTA_METHOD_NAME );
+			LogDebug( ( "User firmware header updated." ) );
 		}
 		else
 		{
-			OTA_LOG_L1( "[%s] ERROR: Failed to update the image header.\r\n", OTA_METHOD_NAME );
-			eResult = kOTA_Err_FileClose;
+			LogError( ( "Failed to update the image header." ) );
+			eResult = OTA_ERR_FILE_CLOSE;
 		}
 		/* delete task/queue for flashing */
 		if (NULL != xTask)
@@ -492,7 +497,7 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
 	}
 	else
 	{
-		load_firmware_control_block.eSavedAgentState = eOTA_ImageState_Rejected;
+		load_firmware_control_block.eSavedAgentState = OtaImageStateRejected;
 	}
 
 	ota_context_close(C);
@@ -500,11 +505,9 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
+static OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CheckFileSignature" );
-
-    OTA_Err_t eResult;
+    OtaErr_t eResult;
     uint32_t ulSignerCertSize;
     void * pvSigVerifyContext;
     uint8_t * pucSignerCert = NULL;
@@ -548,17 +551,17 @@ static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
     if( CRYPTO_SignatureVerificationStart( &pvSigVerifyContext, cryptoASYMMETRIC_ALGORITHM_ECDSA,
                                            cryptoHASH_ALGORITHM_SHA256 ) == pdFALSE )
     {
-        return kOTA_Err_SignatureCheckFailed;
+        return OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
     else
     {
-        OTA_LOG_L1( "[%s] Started %s signature verification, file: %s\r\n", OTA_METHOD_NAME,
-                    cOTA_JSON_FileSignatureKey, ( const char * ) C->pucCertFilepath );
-        pucSignerCert = prvPAL_ReadAndAssumeCertificate( C->pucCertFilepath, &ulSignerCertSize );
+        LogInfo( ( "Started %s signature verification, file: %s",
+                   OTA_JsonFileSignatureKey, ( const char * ) C->pCertFilepath ) );
+        pucSignerCert = prvPAL_ReadAndAssumeCertificate( C->pCertFilepath, &ulSignerCertSize );
 
         if( pucSignerCert == NULL )
         {
-            eResult = kOTA_Err_BadSignerCert;
+            eResult = OTA_ERR_BAD_SIGNER_CERT;
         }
         else
         {
@@ -567,17 +570,17 @@ static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
                                                 load_firmware_control_block.total_image_length);
 
             if( CRYPTO_SignatureVerificationFinal( pvSigVerifyContext, ( char * ) pucSignerCert, ulSignerCertSize,
-                                                   C->pxSignature->ucData, C->pxSignature->usSize ) == pdFALSE )
+                                                   C->pSignature->data, C->pSignature->size ) == pdFALSE )
             {
-                OTA_LOG_L1( "[%s] ERROR: Finished %s signature verification, but signature verification failed\r\n", OTA_METHOD_NAME,
-                    cOTA_JSON_FileSignatureKey );
-                eResult = kOTA_Err_SignatureCheckFailed;
+                LogError( ( "Finished %s signature verification, but signature verification failed",
+                          OTA_JsonFileSignatureKey ) );
+                eResult = OTA_ERR_SIGNATURE_CHECK_FAILED;
             }
             else
             {
-                OTA_LOG_L1( "[%s] PASS: Finished %s signature verification, signature verification passed\r\n", OTA_METHOD_NAME,
-                    cOTA_JSON_FileSignatureKey );
-                eResult = kOTA_Err_None;
+                LogInfo( ( "PASS: Finished %s signature verification, signature verification passed",
+                           OTA_JsonFileSignatureKey ) );
+                eResult = OTA_ERR_NONE;
             }
         }
     }
@@ -595,8 +598,6 @@ static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
 static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertName,
                                                   uint32_t * const ulSignerCertSize )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_ReadAndAssumeCertificate" );
-
     uint8_t * pucCertData;
     uint32_t ulCertSize;
     uint8_t * pucSignerCert = NULL;
@@ -606,12 +607,12 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 
     if( ( xResult == CKR_OK ) && ( pucSignerCert != NULL ) )
     {
-        OTA_LOG_L1( "[%s] Using cert with label: %s OK\r\n", OTA_METHOD_NAME, ( const char * ) pucCertName );
+        LogInfo( ( "Using cert with label: %s OK", ( const char * ) pucCertName ) );
     }
     else
     {
-        OTA_LOG_L1( "[%s] No such certificate file: %s. Using aws_ota_codesigner_certificate.h.\r\n", OTA_METHOD_NAME,
-                    ( const char * ) pucCertName );
+        LogWarn( ( "No such certificate file: %s. Using aws_ota_codesigner_certificate.h.",
+                   ( const char * ) pucCertName ) );
 
         /* Allocate memory for the signer certificate plus a terminating zero so we can copy it and return to the caller. */
         ulCertSize = sizeof( signingcredentialSIGNING_CERTIFICATE_PEM );
@@ -627,7 +628,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
         }
         else
         {
-            OTA_LOG_L1( "[%s] Error: No memory for certificate of size %d!\r\n", OTA_METHOD_NAME, ulCertSize );
+            LogError( ( "No memory for certificate of size %d", ulCertSize ) );
         }
     }
 
@@ -635,14 +636,14 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_ResetDevice( void )
+OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_ResetDevice");
+	( void ) C;
 
-    OTA_LOG_L1( "[%s] Resetting the device.\r\n", OTA_METHOD_NAME );
+    LogInfo( ( "Resetting the device." ) );
 
-	if ((eOTA_ImageState_Accepted == load_firmware_control_block.eSavedAgentState) ||
-	    (eOTA_ImageState_Testing == load_firmware_control_block.eSavedAgentState))
+	if ((OtaImageStateAccepted == load_firmware_control_block.eSavedAgentState) ||
+	    (OtaImageStateTesting == load_firmware_control_block.eSavedAgentState))
 	{
 	    /* Software reset issued (Not swap bank) */
 	    set_psw(0);
@@ -666,39 +667,38 @@ OTA_Err_t prvPAL_ResetDevice( void )
     /* We shouldn't actually get here if the board supports the auto reset.
      * But, it doesn't hurt anything if we do although someone will need to
      * reset the device for the new image to boot. */
-    return kOTA_Err_None;
+    return OTA_ERR_NONE;
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_ActivateNewImage( void )
+OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_ActivateNewImage");
-
-    OTA_LOG_L1( "[%s] Changing the Startup Bank\r\n", OTA_METHOD_NAME );
+    LogInfo( ( "Changing the Startup Bank" ) );
 
     /* reset for self testing */
 	vTaskDelay(5000);
-	prvPAL_ResetDevice();	/* no return from this function */
+	prvPAL_ResetDevice( C );	/* no return from this function */
 
-    return kOTA_Err_None;
+    return OTA_ERR_NONE;
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
+OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+                                       OtaImageState_t eState )
 {
 	flash_interrupt_config_t cb_func_info;
+    OtaErr_t eResult = OTA_ERR_UNINITIALIZED;
 
-    DEFINE_OTA_METHOD_NAME( "prvPAL_SetPlatformImageState" );
-    OTA_LOG_L1("[%s] is called.\r\n", OTA_METHOD_NAME);
+    ( void ) C;
 
-    OTA_Err_t eResult = kOTA_Err_Uninitialized;
+    LogDebug( ( "prvPAL_SetPlatformImageState is called." ) );
 
 	/* Save the image state to eSavedAgentState. */
-	if (eOTA_ImageState_Testing == load_firmware_control_block.eSavedAgentState)
+	if (OtaImageStateTesting == load_firmware_control_block.eSavedAgentState)
 	{
 		switch (eState)
 		{
-			case eOTA_ImageState_Accepted:
+			case OtaImageStateAccepted:
 				R_FLASH_Close();
 				R_FLASH_Open();
 				cb_func_info.pcallback = ota_header_flashing_callback;
@@ -708,32 +708,32 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
 				if (R_FLASH_Erase((flash_block_address_t)BOOT_LOADER_UPDATE_TEMPORARY_AREA_HIGH_ADDRESS, BOOT_LOADER_UPDATE_TARGET_BLOCK_NUMBER) == FLASH_SUCCESS)
 				{
 					while (OTA_FLASHING_IN_PROGRESS == gs_header_flashing_task);
-					OTA_LOG_L1( "[%s] erase install area (code flash):OK\r\n", OTA_METHOD_NAME );
-					OTA_LOG_L1( "[%s] Accepted and committed final image.\r\n", OTA_METHOD_NAME );
-					eResult = kOTA_Err_None;
+					LogInfo( ( "erase install area (code flash):OK" ) );
+					LogInfo( ( "Accepted and committed final image." ) );
+					eResult = OTA_ERR_NONE;
 				}
 				else
 				{
-					OTA_LOG_L1( "[%s] erase install area (code flash):NG\r\n", OTA_METHOD_NAME );
-					OTA_LOG_L1( "[%s] Accepted final image but commit failed (%d).\r\n", OTA_METHOD_NAME );
-					eResult = kOTA_Err_CommitFailed;
+					LogError( ( "erase install area (code flash):NG" ) );
+					LogError( ( "Accepted final image but commit failed." ) );
+					eResult = OTA_ERR_COMMIT_FAILED;
 				}
 				break;
-			case eOTA_ImageState_Rejected:
-				OTA_LOG_L1( "[%s] Rejected image.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateRejected:
+				LogWarn( ( "Rejected image." ) );
+				eResult = OTA_ERR_NONE;
 				break;
-			case eOTA_ImageState_Aborted:
-				OTA_LOG_L1( "[%s] Aborted image.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateAborted:
+				LogWarn( ( "Aborted image." ) );
+				eResult = OTA_ERR_NONE;
 				break;
-			case eOTA_ImageState_Testing:
-				OTA_LOG_L1( "[%s] Testing.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateTesting:
+				LogInfo( ( "Testing." ) );
+				eResult = OTA_ERR_NONE;
 				break;
 			default:
-				OTA_LOG_L1( "[%s] Unknown state received %d.\r\n", OTA_METHOD_NAME, ( int32_t ) eState );
-		        eResult = kOTA_Err_BadImageState;
+				LogError( ( "Unknown state received %d.", ( int32_t ) eState ) );
+		        eResult = OTA_ERR_BAD_IMAGE_STATE;
 				break;
 		}
 	}
@@ -741,25 +741,25 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
 	{
 		switch (eState)
 		{
-			case eOTA_ImageState_Accepted:
-				OTA_LOG_L1( "[%s] Not in commit pending so can not mark image valid (%d).\r\n", OTA_METHOD_NAME);
-				eResult = kOTA_Err_CommitFailed;
+			case OtaImageStateAccepted:
+				LogError( ( "Not in commit pending so can not mark image valid." ) );
+				eResult = OTA_ERR_COMMIT_FAILED;
 				break;
-			case eOTA_ImageState_Rejected:
-				OTA_LOG_L1( "[%s] Rejected image.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateRejected:
+				LogWarn( ( "Rejected image." ) );
+				eResult = OTA_ERR_NONE;
 				break;
-			case eOTA_ImageState_Aborted:
-				OTA_LOG_L1( "[%s] Aborted image.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateAborted:
+				OLogWarn( ( "Aborted image." ) );
+				eResult = OTA_ERR_NONE;
 				break;
-			case eOTA_ImageState_Testing:
-				OTA_LOG_L1( "[%s] Testing.\r\n", OTA_METHOD_NAME );
-				eResult = kOTA_Err_None;
+			case OtaImageStateTesting:
+				LogInfo( ( "Testing." ) );
+				eResult = OTA_ERR_NONE;
 				break;
 			default:
-				OTA_LOG_L1( "[%s] Unknown state received %d.\r\n", OTA_METHOD_NAME, ( int32_t ) eState );
-		        eResult = kOTA_Err_BadImageState;
+				LogError( ( "Unknown state received %d.", ( int32_t ) eState ) );
+		        eResult = OTA_ERR_BAD_IMAGE_STATE;
 				break;
 		}
 	}
@@ -770,40 +770,36 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
 }
 /*-----------------------------------------------------------*/
 
-OTA_PAL_ImageState_t prvPAL_GetPlatformImageState( void )
+OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_GetPlatformImageState" );
-    OTA_LOG_L1("[%s] is called.\r\n", OTA_METHOD_NAME);
+    OtaPalImageState_t ePalState = OtaPalImageStateUnknown;
 
-	OTA_PAL_ImageState_t ePalState = eOTA_PAL_ImageState_Unknown;
+    ( void ) C;
+
+    LogDebug( ( "prvPAL_GetPlatformImageState is called." ) );
 
 	switch (load_firmware_control_block.eSavedAgentState)
 	{
-		case eOTA_ImageState_Testing:
-			ePalState = eOTA_PAL_ImageState_PendingCommit;
+		case OtaImageStateTesting:
+			ePalState = OtaPalImageStatePendingCommit;
 			break;
-		case eOTA_ImageState_Accepted:
-			ePalState = eOTA_PAL_ImageState_Valid;
+		case OtaImageStateAccepted:
+			ePalState = OtaPalImageStateValid;
 			break;
-		case eOTA_ImageState_Unknown: // Uninitialized image state, assume a factory image
-			ePalState = eOTA_PAL_ImageState_Valid;
+		case OtaImageStateUnknown: // Uninitialized image state, assume a factory image
+			ePalState = OtaPalImageStateValid;
 			break;
-		case eOTA_ImageState_Rejected:
-		case eOTA_ImageState_Aborted:
+		case OtaImageStateRejected:
+		case OtaImageStateAborted:
 		default:
-			ePalState = eOTA_PAL_ImageState_Invalid;
+			ePalState = OtaPalImageStateInvalid;
 			break;
 	}
 
-	OTA_LOG_L1("Function call: prvPAL_GetPlatformImageState: [%d]\r\n", ePalState);
+	LogDebug( ( "Function call: prvPAL_GetPlatformImageState: [%d]", ePalState ) );
     return ePalState; /*lint !e64 !e480 !e481 I/O calls and return type are used per design. */
 }
 /*-----------------------------------------------------------*/
-
-/* Provide access to private members for testing. */
-#ifdef FREERTOS_ENABLE_UNIT_TESTS
-    #include "aws_ota_pal_test_access_define.h"
-#endif
 
 static CK_RV prvGetCertificateHandle( CK_FUNCTION_LIST_PTR pxFunctionList,
                                       CK_SESSION_HANDLE xSession,
@@ -928,12 +924,12 @@ static CK_RV prvGetCertificate( const char * pcLabelName,
     return xResult;
 }
 
-static int32_t ota_context_validate( OTA_FileContext_t * C )
+static int32_t ota_context_validate( OtaFileContext_t * C )
 {
 	return ( NULL != C );
 }
 
-static int32_t ota_context_update_user_firmware_header( OTA_FileContext_t * C )
+static int32_t ota_context_update_user_firmware_header( OtaFileContext_t * C )
 {
     int32_t ret = R_OTA_ERR_INVALID_CONTEXT;
 	uint8_t block[BOOT_LOADER_USER_FIRMWARE_HEADER_LENGTH];
@@ -951,10 +947,10 @@ static int32_t ota_context_update_user_firmware_header( OTA_FileContext_t * C )
 	p_block_header->image_flag = LIFECYCLE_STATE_TESTING;
 
 	/* Update signature type. */
-	memcpy(p_block_header->signature_type, cOTA_JSON_FileSignatureKey,sizeof(cOTA_JSON_FileSignatureKey));
+	memcpy(p_block_header->signature_type, OTA_JsonFileSignatureKey,sizeof(OTA_JsonFileSignatureKey));
 
 	/* Parse the signature and extract ECDSA-SHA256 signature data. */
-	source_pointer = C->pxSignature->ucData;
+	source_pointer = C->pSignature->data;
 	destination_pointer = p_block_header->signature;
 	data_length = *(source_pointer + 1) + OTA_SIGUNATURE_SEQUENCE_INFO_LENGTH;
 	memset(destination_pointer, 0, sizeof(destination_pointer));
@@ -977,7 +973,7 @@ static int32_t ota_context_update_user_firmware_header( OTA_FileContext_t * C )
 				memcpy(destination_pointer, source_pointer, OTA_SIGUNATURE_DATA_HALF_LENGTH);
 				source_pointer += OTA_SIGUNATURE_DATA_HALF_LENGTH;
 				destination_pointer += OTA_SIGUNATURE_DATA_HALF_LENGTH;
-				if ((source_pointer - C->pxSignature->ucData) == data_length)
+				if ((source_pointer - C->pSignature->data) == data_length)
 				{
 					ret = R_OTA_ERR_NONE;
 					break;
@@ -1011,11 +1007,11 @@ static int32_t ota_context_update_user_firmware_header( OTA_FileContext_t * C )
 	return ret;
 }
 
-static void ota_context_close( OTA_FileContext_t * C )
+static void ota_context_close( OtaFileContext_t * C )
 {
     if( NULL != C )
     {
-        C->pucFile = NULL;
+        C->pFile = NULL;
     }
 }
 
@@ -1143,7 +1139,7 @@ static FRAGMENTED_FLASH_BLOCK_LIST *fragmented_flash_block_list_print(FRAGMENTED
 			tmp = tmp->next;
 		};
 	}
-    OTA_LOG_L2("FRAGMENTED_FLASH_BLOCK_LIST: total_heap_length = [%d], total_list_count = [%d].\r\n", total_heap_length, total_list_count);
+    LogDebug( ( "FRAGMENTED_FLASH_BLOCK_LIST: total_heap_length = [%d], total_list_count = [%d].", total_heap_length, total_list_count ) );
 
 	return tmp;
 }
