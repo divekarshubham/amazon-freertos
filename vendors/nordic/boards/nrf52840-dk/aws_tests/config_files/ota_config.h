@@ -1,5 +1,5 @@
 /*
- * FreeRTOS V1.4.4
+ * FreeRTOS V1.4.2
  * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -24,17 +24,37 @@
  */
 
 /**
- * @file aws_ota_agent_config.h
+ * @file ota_config.h
  * @brief OTA user configurable settings.
  */
 
-#ifndef _AWS_OTA_AGENT_CONFIG_H_
-#define _AWS_OTA_AGENT_CONFIG_H_
+#ifndef OTA_CONFIG_H_
+#define OTA_CONFIG_H_
 
-/**
- * @brief The number of words allocated to the stack for the OTA agent.
+/**************************************************/
+/******* DO NOT CHANGE the following order ********/
+/**************************************************/
+
+/* Logging related header files are required to be included in the following order:
+ * 1. Include the header file "logging_levels.h".
+ * 2. Define LIBRARY_LOG_NAME and  LIBRARY_LOG_LEVEL.
+ * 3. Include the header file "logging_stack.h".
  */
-#define otaconfigSTACK_SIZE                     8192U
+
+/* Include header that defines log levels. */
+#include "logging_levels.h"
+
+/* Configure name and log level for the OTA library. */
+#ifndef LIBRARY_LOG_NAME
+    #define LIBRARY_LOG_NAME     "OTA"
+#endif
+#ifndef LIBRARY_LOG_LEVEL
+    #define LIBRARY_LOG_LEVEL    LOG_INFO
+#endif
+
+#include "logging_stack.h"
+
+/************ End of logging configuration ****************/
 
 /**
  * @brief Log base 2 of the size of the file data block message (excluding the header).
@@ -55,11 +75,6 @@
  * the request message after being idle for this amount of time.
  */
 #define otaconfigFILE_REQUEST_WAIT_MS           2500U
-
-/**
- * @brief The OTA agent task priority. Normally it runs at a low priority.
- */
-#define otaconfigAGENT_PRIORITY                 tskIDLE_PRIORITY + 5U
 
 /**
  * @brief The maximum allowed length of the thing name used by the OTA agent.
@@ -168,4 +183,4 @@
 
 #define configOTA_PRIMARY_DATA_PROTOCOL     ( OTA_DATA_OVER_MQTT )
 
-#endif /* _AWS_OTA_AGENT_CONFIG_H_ */
+#endif /* OTA_CONFIG_H_ */
