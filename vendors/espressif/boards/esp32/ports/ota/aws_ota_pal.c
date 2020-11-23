@@ -746,7 +746,3 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 
     return eResult;
 }
-
-#ifdef FREERTOS_ENABLE_UNIT_TESTS
-    #include "aws_ota_pal_test_access_define.h"
-#endif
