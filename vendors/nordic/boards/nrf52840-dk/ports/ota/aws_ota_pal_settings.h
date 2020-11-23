@@ -2,7 +2,7 @@
 #define __AWS_OTA_PAL_SETTINGS
 
 #include "stdint.h"
-#include "aws_iot_ota_agent.h"
+#include "ota.h"
 /* Number of bytes to represent an component (R,S) of the the curve. */
 #define ECC_NUM_BYTES_PER_SIG_COMPONENT    ( 32U )
 
