@@ -29,9 +29,9 @@
 
 /* FreeRTOS include. */
 #include "FreeRTOS.h"
-#include "aws_iot_ota_agent.h"
-#include "aws_iot_ota_pal.h"
-#include "aws_iot_ota_agent_internal.h"
+#include "ota.h"
+#include "ota_platform_interface.h"
+#include "ota_private.h"
 #include "aws_ota_pal_settings.h"
 #include "aws_ota_codesigner_certificate.h"
 
@@ -47,7 +47,7 @@
 
 
 /* Specify the OTA signature algorithm we support on this platform. */
-const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
+const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
 const char pcOTA_PAL_Magick[ otapalMAGICK_SIZE ] = "@AFRTOS";
 const size_t otapalFLASH_END = ( size_t ) &__FLASH_segment_end__;
 /* Tag by which the beginning of the ECDSA in the public key can be found */
@@ -76,12 +76,12 @@ size_t ulPublicKeySize = 0;
  * @param[in] C OTA file context information.
  *
  * @return Below are the valid return values for this function.
- * kOTA_Err_None if the signature verification passes.
- * kOTA_Err_SignatureCheckFailed if the signature verification fails.
- * kOTA_Err_BadSignerCert if the if the signature verification certificate cannot be read.
+ * OTA_ERR_NONE if the signature verification passes.
+ * OTA_ERR_SIGNATURE_CHECK_FAILED if the signature verification fails.
+ * OTA_ERR_BAD_SIGNER_CERT if the if the signature verification certificate cannot be read.
  *
  */
-static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C );
+static OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C );
 
 /**
  * @brief Read the specified signer certificate from the filesystem into a local buffer.
@@ -107,7 +107,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
  *
  * @return A number of bytes written or -1 if an error happened.
  */
-static ret_code_t prvPAL_WriteImageDescriptor( OTA_FileContext_t * const C );
+static ret_code_t prvPAL_WriteImageDescriptor( OtaFileContext_t * const C );
 
 /**
  * @brief Sincronously write data to flash
@@ -143,12 +143,12 @@ ret_code_t prvVerifySignature( uint8_t * pusHash,
 
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvErasePages(size_t xFrom, size_t xTo)
+OtaErr_t prvErasePages(size_t xFrom, size_t xTo)
 {
     size_t ulErasedAddress = (size_t) xFrom;
-    OTA_Err_t xStatus = kOTA_Err_None;
+    OtaErr_t xStatus = OTA_ERR_NONE;
     ret_code_t xErrCode = NRF_SUCCESS;
-    while(xStatus == kOTA_Err_None && ulErasedAddress < (size_t) xTo )
+    while(xStatus == OTA_ERR_NONE && ulErasedAddress < (size_t) xTo )
     {
         size_t ulErasedPage = ( size_t ) ( ulErasedAddress / NRF_FICR->CODEPAGESIZE );
         ulErasedAddress += NRF_FICR->CODEPAGESIZE;
@@ -157,7 +157,7 @@ OTA_Err_t prvErasePages(size_t xFrom, size_t xTo)
 
         if( xErrCode != NRF_SUCCESS )
         {
-            xStatus = kOTA_Err_RxFileCreateFailed;
+            xStatus = OTA_ERR_RX_FILE_CREATE_FAILED;
         }
         else
         {
@@ -170,7 +170,7 @@ OTA_Err_t prvErasePages(size_t xFrom, size_t xTo)
                 EventBits_t xFlashResult = xEventGroupWaitBits( xFlashEventGrp, otapalFLASH_SUCCESS | otapalFLASH_FAILURE, pdTRUE, pdFALSE, portMAX_DELAY );
                 if( xFlashResult & otapalFLASH_FAILURE )
                 {
-                    xStatus = kOTA_Err_RxFileCreateFailed;
+                    xStatus = OTA_ERR_RX_FILE_CREATE_FAILED;
                 }
             }
         }
@@ -178,34 +178,33 @@ OTA_Err_t prvErasePages(size_t xFrom, size_t xTo)
     return xStatus;
 }
 
-OTA_Err_t prvPAL_CreateFileForRx( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CreateFileForRx" );
     ret_code_t xErrCode;
-    C->lFileHandle = prvNextFreeFileHandle;
-    OTA_Err_t xStatus = kOTA_Err_None;
+    C->pFile = prvNextFreeFileHandle;
+    OtaErr_t xStatus = OTA_ERR_NONE;
     /* Check that the second bank size is big enough to contain the new firmware */
-    if( C->ulFileSize > otapalSECOND_BANK_SIZE )
+    if( C->fileSize > otapalSECOND_BANK_SIZE )
     {
-        xStatus = kOTA_Err_OutOfMemory;
+        xStatus = OTA_ERR_OUT_OF_MEMORY;
     }
-    if (xStatus == kOTA_Err_None){
+    if (xStatus == OTA_ERR_NONE){
         /* Create the event group for flash events */
         xFlashEventGrp = xEventGroupCreate();
 
         if( xFlashEventGrp == NULL )
         {
-            OTA_LOG_L1( "[%s] No memory for creation of event group \n", OTA_METHOD_NAME );
-            xStatus = kOTA_Err_OutOfMemory;
+            LogError( ( "No memory for creation of event group" ) );
+            xStatus = OTA_ERR_OUT_OF_MEMORY;
         }
     }
-    if (xStatus == kOTA_Err_None){
+    if (xStatus == OTA_ERR_NONE){
         /* Erase the required memory */
-        OTA_LOG_L1( "[%s] Erasing the flash memory \n", OTA_METHOD_NAME );
+        LogInfo( ( "Erasing the flash memory" ) );
         xStatus = prvErasePages(otapalSECOND_BANK_START, otapalSECOND_BANK_END);
-        if (xStatus != kOTA_Err_None)
+        if (xStatus != OTA_ERR_NONE)
         {
-             OTA_LOG_L1( "[%s] Erasing the flash memory failed with error_code %d\n", OTA_METHOD_NAME, xStatus );
+             LogError( ( "Erasing the flash memory failed with error_code %d", xStatus ) );
         }
     }
 
@@ -213,11 +212,9 @@ OTA_Err_t prvPAL_CreateFileForRx( OTA_FileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_Abort( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_Abort" );
-
-    C->lFileHandle = ( int32_t ) NULL;
+    C->pFile = ( int32_t ) NULL;
     /* Delete the event group */
     if( xFlashEventGrp != NULL )
     {
@@ -225,17 +222,15 @@ OTA_Err_t prvPAL_Abort( OTA_FileContext_t * const C )
         xFlashEventGrp = NULL;
     }
 
-    return kOTA_Err_None;
+    return OTA_ERR_NONE;
 }
 /*-----------------------------------------------------------*/
 
-int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
+int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pacData,
                            uint32_t ulBlockSize )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_WriteBlock" );
-
     /* We assume that the flash is already erased by this address (it should be, as we erase it in the
      * prvPAL_CreateFileForRx, but the second write to the same position can break this invariant.
      * Anyway, the OTA procedure must not try to write to the same addresses */
@@ -243,26 +238,24 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C,
 
     if( xErrCode == NRF_SUCCESS )
     {
-        OTA_LOG_L1( "[%s] Write %ul bytes from the %ul address \n", OTA_METHOD_NAME, ulBlockSize, ulOffset );
+        LogDebug( ( "Write %ul bytes from the %ul address", ulBlockSize, ulOffset ) );
         return ulBlockSize;
     }
     else
     {
-        OTA_LOG_L1( "[%s] Write %ul bytes from the %ul address failed with error code %d\n", OTA_METHOD_NAME, ulBlockSize,
-                    ulOffset, xErrCode );
+        LogError( ( "Write %ul bytes from the %ul address failed with error code %d",
+                    ulBlockSize, ulOffset, xErrCode ) );
         return -1;
     }
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
+OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 {
-    OTA_Err_t xError;
+    OtaErr_t xError;
     ret_code_t xStatus;
 
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CloseFile" );
-
-    OTA_LOG_L1( "[%s] Erasing the flash memory was successful\n", OTA_METHOD_NAME );
+    LogInfo( ( "Erasing the flash memory was successful" ) );
 
     /* Write the image descriptor */
     xStatus = prvPAL_WriteImageDescriptor( C );
@@ -274,7 +267,7 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
         xError = prvPAL_CheckFileSignature( C );
     }else
     {
-        xError = kOTA_Err_SignatureCheckFailed;
+        xError = OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
 
     return xError;
@@ -282,10 +275,8 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t * const C )
 /*-----------------------------------------------------------*/
 
 
-static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
+static OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_CheckFileSignature" );
-
     nrf_crypto_hash_sha256_digest_t xHash;
     size_t ulHashLength = sizeof( xHash );
     ret_code_t xErrCode = NRF_SUCCESS;
@@ -295,19 +286,19 @@ static OTA_Err_t prvPAL_CheckFileSignature( OTA_FileContext_t * const C )
         xErrCode = NRF_ERROR_INTERNAL;
     }
     if (xErrCode == NRF_SUCCESS) {
-        prvComputeSHA256Hash( (uint8_t *)otapalSECOND_BANK_START + otapalDESCRIPTOR_SIZE, C->ulFileSize, &xHash, &ulHashLength );
-        xErrCode = prvVerifySignature( (uint8_t*) &xHash, ulHashLength, C->pxSignature->ucData, C->pxSignature->usSize, pusCertificate, ulCertificateSize );
+        prvComputeSHA256Hash( (uint8_t *)otapalSECOND_BANK_START + otapalDESCRIPTOR_SIZE, C->fileSize, &xHash, &ulHashLength );
+        xErrCode = prvVerifySignature( (uint8_t*) &xHash, ulHashLength, C->pSignature->data, C->pSignature->size, pusCertificate, ulCertificateSize );
         vPortFree( pusCertificate );
     }
 
     if( xErrCode != NRF_SUCCESS )
     {
-        OTA_LOG_L1( "[%s] Signature check failed \n", OTA_METHOD_NAME );
-        return kOTA_Err_SignatureCheckFailed;
+        LogError( ( "Signature check failed" ) );
+        return OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
 
-    OTA_LOG_L1( "[%s] Signature check passed \n", OTA_METHOD_NAME );
-    return kOTA_Err_None;
+    LogInfo( ( "Signature check passed" ) );
+    return OTA_ERR_NONE;
 }
 /*-----------------------------------------------------------*/
 
@@ -316,7 +307,6 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 {
     uint8_t * pucPublicKey;
 
-    DEFINE_OTA_METHOD_NAME( "prvPAL_ReadAndAssumeCertificate" );
     * ulSignerCertSize = sizeof(signingcredentialSIGNING_CERTIFICATE_PEM);
     /* Skip the "BEGIN CERTIFICATE" */
     uint8_t* pucCertBegin = strstr (signingcredentialSIGNING_CERTIFICATE_PEM, pcOTA_PAL_CERT_BEGIN) ;
@@ -367,36 +357,40 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_ResetDevice( void )
+OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_ResetDevice" );
+    ( void ) C;
+
     NVIC_SystemReset();
-    return kOTA_Err_ResetNotSupported;
+    return OTA_ERR_RESET_NOT_SUPPORTED;
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_ActivateNewImage( void )
+OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_ActivateNewImage" );
+    ( void ) C;
 
     /* FIX ME. */
-    prvPAL_ResetDevice();
-    return kOTA_Err_Uninitialized;
+    prvPAL_ResetDevice( C );
+    return OTA_ERR_UNINITIALIZED;
 }
 /*-----------------------------------------------------------*/
 
-OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
+OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+                                       OtaImageState_t eState )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_SetPlatformImageState" );
-    OTA_Err_t xStatus = kOTA_Err_None;
+    OtaErr_t xStatus = OTA_ERR_NONE;
+
+    ( void ) C;
+
     if (xFlashEventGrp == NULL){
         /* Create the event group for flash events */
         xFlashEventGrp = xEventGroupCreate();
 
         if( xFlashEventGrp == NULL )
         {
-            OTA_LOG_L1( "[%s] No memory for creation of event group \n", OTA_METHOD_NAME );
-            xStatus = kOTA_Err_OutOfMemory;
+            LogError( ( "No memory for creation of event group" ) );
+            xStatus = OTA_ERR_OUT_OF_MEMORY;
         }
     }
     /* Read the old image */
@@ -405,13 +399,13 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
     ImageDescriptor_t * old_descriptor = ( ImageDescriptor_t * ) ( otapalFIRST_BANK_START );
     ImageDescriptor_t new_descriptor;
     /* Check if the correct image is located at the beginning of the bank */
-    if ((memcmp(old_descriptor->pMagick, pcOTA_PAL_Magick, otapalMAGICK_SIZE) != 0)&&(eState == eOTA_ImageState_Accepted)) {
-        xStatus = kOTA_Err_CommitFailed;
+    if ((memcmp(old_descriptor->pMagick, pcOTA_PAL_Magick, otapalMAGICK_SIZE) != 0)&&(eState == OtaImageStateAccepted)) {
+        xStatus = OTA_ERR_COMMIT_FAILED;
     }
-    if (xStatus == kOTA_Err_None){
+    if (xStatus == OTA_ERR_NONE){
         memcpy(&new_descriptor, old_descriptor, sizeof(new_descriptor));
         switch (eState) {
-        case eOTA_ImageState_Accepted:
+        case OtaImageStateAccepted:
             if (old_descriptor->usImageFlags == otapalIMAGE_FLAG_COMMIT_PENDING)
             {
                 new_descriptor.usImageFlags = otapalIMAGE_FLAG_VALID;
@@ -422,28 +416,28 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
             }
 
             break;
-        case eOTA_ImageState_Rejected:
-        case eOTA_ImageState_Aborted:
+        case OtaImageStateRejected:
+        case OtaImageStateAborted:
             if (old_descriptor->usImageFlags == otapalIMAGE_FLAG_COMMIT_PENDING)
             {
                 new_descriptor.usImageFlags = otapalIMAGE_FLAG_INVALID;
             }
             break;
-        case eOTA_ImageState_Testing:
+        case OtaImageStateTesting:
             break;
         default:
-            xStatus = kOTA_Err_BadImageState;
+            xStatus = OTA_ERR_BAD_IMAGE_STATE;
             break;
         }
     }
 
-    if ( xStatus == kOTA_Err_None )
+    if ( xStatus == OTA_ERR_NONE )
     {
         /* We don't wont to do anything with flash if it would leave it in the same state as it were */
-        if ((new_descriptor.usImageFlags != old_descriptor->usImageFlags)&&(eState != eOTA_ImageState_Testing))
+        if ((new_descriptor.usImageFlags != old_descriptor->usImageFlags)&&(eState != OtaImageStateTesting))
         {
             xStatus = prvErasePages(otapalFIRST_BANK_START, otapalFIRST_BANK_START + otapalDESCRIPTOR_SIZE);
-            if(xStatus == kOTA_Err_None)
+            if(xStatus == OTA_ERR_NONE)
             {
                 xStatus = prvWriteFlash(otapalFIRST_BANK_START, sizeof(new_descriptor), (uint8_t *)&new_descriptor);
             }
@@ -453,26 +447,26 @@ OTA_Err_t prvPAL_SetPlatformImageState( OTA_ImageState_t eState )
 }
 /*-----------------------------------------------------------*/
 
-OTA_PAL_ImageState_t prvPAL_GetPlatformImageState( void )
+OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME( "prvPAL_GetPlatformImageState" );
-
-    OTA_PAL_ImageState_t xImageState = eOTA_PAL_ImageState_Invalid;
+    OtaPalImageState_t xImageState = OtaPalImageStateInvalid;
 
     ImageDescriptor_t * descriptor = ( ImageDescriptor_t * ) ( otapalFIRST_BANK_START );
+
+    ( void ) C;
 
     switch( descriptor->usImageFlags )
     {
         case otapalIMAGE_FLAG_COMMIT_PENDING:
-            xImageState = eOTA_PAL_ImageState_PendingCommit;
+            xImageState = OtaPalImageStatePendingCommit;
             break;
 
         case otapalIMAGE_FLAG_VALID:
-            xImageState = eOTA_PAL_ImageState_Valid;
+            xImageState = OtaPalImageStateValid;
             break;
 
         case otapalIMAGE_FLAG_INVALID:
-            xImageState = eOTA_PAL_ImageState_Invalid;
+            xImageState = OtaPalImageStateInvalid;
             break;
     }
 
@@ -480,11 +474,11 @@ OTA_PAL_ImageState_t prvPAL_GetPlatformImageState( void )
 }
 /*-----------------------------------------------------------*/
 
-static ret_code_t prvPAL_WriteImageDescriptor( OTA_FileContext_t * const C )
+static ret_code_t prvPAL_WriteImageDescriptor( OtaFileContext_t * const C )
 {
     ImageDescriptor_t xDescriptor;
     ImageDescriptor_t xOldDescriptor;
-    OTA_Err_t xStatus = kOTA_Err_None;
+    OtaErr_t xStatus = OTA_ERR_NONE;
 
     memset( &xDescriptor, 0, sizeof( xDescriptor ) );
 
@@ -503,17 +497,17 @@ static ret_code_t prvPAL_WriteImageDescriptor( OTA_FileContext_t * const C )
 
     memcpy( &xDescriptor.pMagick, pcOTA_PAL_Magick, otapalMAGICK_SIZE );
     xDescriptor.ulStartAddress = otapalFIRST_BANK_START + otapalDESCRIPTOR_SIZE;
-    xDescriptor.ulEndAddress = xDescriptor.ulStartAddress + C->ulFileSize;
+    xDescriptor.ulEndAddress = xDescriptor.ulStartAddress + C->fileSize;
     xDescriptor.ulExecutionAddress = xDescriptor.ulStartAddress; /* TODO: Check if this assumption is true */
     xDescriptor.ulHardwareID = 0;                                /* TODO: Fill the Hardware ID */
     xDescriptor.usImageFlags = otapalIMAGE_FLAG_NEW;
-    xDescriptor.ulSignatureSize = C->pxSignature->usSize;
+    xDescriptor.ulSignatureSize = C->pSignature->size;
 
-    if( C->pxSignature != NULL)
+    if( C->pSignature != NULL)
     {
-      if( C->pxSignature->usSize <= kOTA_MaxSignatureSize)
+      if( C->pSignature->size <= kOTA_MaxSignatureSize)
        {
-          memcpy( &xDescriptor.pSignature, C->pxSignature->ucData, C->pxSignature->usSize );
+          memcpy( &xDescriptor.pSignature, C->pSignature->data, C->pSignature->size );
        }
      }
     prvErasePages(otapalSECOND_BANK_START, otapalSECOND_BANK_START + otapalDESCRIPTOR_SIZE);
@@ -677,18 +671,12 @@ void flash_event_handler( uint32_t evt_id,
 
 NRF_SDH_SOC_OBSERVER( flash_observer, BLE_DFU_SOC_OBSERVER_PRIO, flash_event_handler, NULL );
 
-OTA_Err_t testCheckSignature(){
-    OTA_FileContext_t C;
+OtaErr_t testCheckSignature(){
+    OtaFileContext_t C;
     uint32_t ulCertSize = sizeof(signingcredentialSIGNING_CERTIFICATE_PEM);
     uint8_t * pusCertificate = prvPAL_ReadAndAssumeCertificate(signingcredentialSIGNING_CERTIFICATE_PEM, &ulCertSize);
     vPortFree( pusCertificate );
     ImageDescriptor_t * descriptor = ( ImageDescriptor_t * ) ( otapalSECOND_BANK_START );
-    C.ulFileSize = descriptor->ulEndAddress - descriptor->ulStartAddress;
+    C.fileSize = descriptor->ulEndAddress - descriptor->ulStartAddress;
     return prvPAL_CheckFileSignature( &C );
 }
-
-
-/* Provide access to private members for testing. */
-#ifdef FREERTOS_ENABLE_UNIT_TESTS
-    #include "aws_ota_pal_test_access_define.h"
-#endif
