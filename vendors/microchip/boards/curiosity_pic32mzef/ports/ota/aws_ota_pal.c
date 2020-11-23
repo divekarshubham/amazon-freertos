@@ -667,7 +667,7 @@ OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 
 
 /* Platform specific handling of the last transferred OTA file.
- * Commit the image if the state == eOTA_ImageState_Accepted.
+ * Commit the image if the state == OtaImageStateAccepted.
  */
 OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
@@ -686,7 +686,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
     /* This should be an image launched in self test mode! */
     if( xDescCopy.xImgHeader.ucImgFlags == AWS_BOOT_FLAG_IMG_PENDING_COMMIT )
     {
-        if( eState == eOTA_ImageState_Accepted )
+        if( eState == OtaImageStateAccepted )
         {
             /* Mark the image as valid */
             xDescCopy.xImgHeader.ucImgFlags = AWS_BOOT_FLAG_IMG_VALID;
@@ -715,7 +715,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                 eResult = ( uint32_t ) OTA_ERR_COMMIT_FAILED | ( ( ( uint32_t ) MCHP_ERR_FLASH_WRITE_FAIL ) & ( uint32_t ) OTA_PAL_ERR_MASK );
             }
         }
-        else if( eState == eOTA_ImageState_Rejected )
+        else if( eState == OtaImageStateRejected )
         {
             /* Mark the image as invalid */
             xDescCopy.xImgHeader.ucImgFlags = AWS_BOOT_FLAG_IMG_INVALID;
@@ -734,7 +734,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                 eResult = ( uint32_t ) OTA_ERR_REJECT_FAILED | ( ( ( uint32_t ) MCHP_ERR_FLASH_WRITE_FAIL ) & ( uint32_t ) OTA_PAL_ERR_MASK );
             }
         }
-        else if( eState == eOTA_ImageState_Aborted )
+        else if( eState == OtaImageStateAborted )
         {
             /* Mark the image as invalid */
             xDescCopy.xImgHeader.ucImgFlags = AWS_BOOT_FLAG_IMG_INVALID;
@@ -753,7 +753,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                 eResult = ( uint32_t ) OTA_ERR_ABORT_FAILED | ( ( ( uint32_t ) MCHP_ERR_FLASH_WRITE_FAIL ) & ( uint32_t ) OTA_PAL_ERR_MASK );
             }
         }
-        else if( eState == eOTA_ImageState_Testing )
+        else if( eState == OtaImageStateTesting )
         {
             eResult = OTA_ERR_NONE;
         }
@@ -769,14 +769,14 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
         pxAppImgDesc = ( const BootImageDescriptor_t * ) KVA0_TO_KVA1( pcProgImageBankStart );
         xDescCopy = *pxAppImgDesc;
 
-        if( eState == eOTA_ImageState_Accepted )
+        if( eState == OtaImageStateAccepted )
         {
             /* We are not in self-test mode so can not set the image in upper bank as valid.  */
             LogWarn( ( "Not in commit pending so can not mark image valid (%d).",
                        MCHP_ERR_NOT_PENDING_COMMIT ) );
             eResult = ( uint32_t ) OTA_ERR_COMMIT_FAILED | ( ( ( uint32_t ) MCHP_ERR_NOT_PENDING_COMMIT ) & ( uint32_t ) OTA_PAL_ERR_MASK );
         }
-        else if( eState == eOTA_ImageState_Rejected )
+        else if( eState == OtaImageStateRejected )
         {
             LogWarn( ( "Rejected image." ) );
 
@@ -792,7 +792,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                 eResult = OTA_ERR_NONE;
             }
         }
-        else if( eState == eOTA_ImageState_Aborted )
+        else if( eState == OtaImageStateAborted )
         {
             LogWarn( ( "Aborted image." ) );
 
@@ -808,7 +808,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                 eResult = OTA_ERR_NONE;
             }
         }
-        else if( eState == eOTA_ImageState_Testing )
+        else if( eState == OtaImageStateTesting )
         {
             eResult = OTA_ERR_NONE;
         }
