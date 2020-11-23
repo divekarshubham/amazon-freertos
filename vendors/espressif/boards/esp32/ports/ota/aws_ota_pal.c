@@ -91,7 +91,7 @@ static esp_ota_context_t ota_ctx;
 static const char * TAG = "ota_pal";
 
 /* Specify the OTA signature algorithm we support on this platform. */
-const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
+const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
 
 static CK_RV prvGetCertificateHandle( CK_FUNCTION_LIST_PTR pxFunctionList,
                                       CK_SESSION_HANDLE xSession,
