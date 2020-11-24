@@ -25,8 +25,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* OTA PAL implementation for TI CC3220SF platform. */
 
-#include "aws_iot_ota_agent.h"
-#include "aws_iot_ota_pal.h"
+#include "ota.h"
+#include "ota_platform_interface.h"
+
+/* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
+ * without a custom config. If a custom config is provided, the
+ * OTA_DO_NOT_USE_CUSTOM_CONFIG macro should not be defined. */
+#ifndef OTA_DO_NOT_USE_CUSTOM_CONFIG
+    #include "ota_config.h"
+#endif
+
+/* Include config defaults header to get default values of configs not defined
+ * in ota_config.h file. */
+#include "ota_config_defaults.h"
 
 #define kOTA_HalfSecondDelay pdMS_TO_TICKS(500UL)
 
@@ -37,7 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <ti/devices/cc32xx/driverlib/prcm.h>
 
 /* Specify the OTA signature algorithm we support on this platform. */
-const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha1-rsa";
+const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha1-rsa";
 
 #define OTA_VENDOR_TOKEN            1952007250UL                    /* This is our specific file token for OTA updates. */
 #define OTA_MAX_MCU_IMAGE_SIZE      (512UL * 1024UL)                /* Maximum allowed size of an MCU update image for this platform. */
@@ -69,14 +80,12 @@ typedef struct
 
 /* Private functions. */
 static void prvRollbackBundle( void );                              /* Call the TI CC3220SF bundle rollback API. */
-static void prvRollbackRxFile( OTA_FileContext_t *C );              /* Call the TI CC3220SF file rollback API. */
+static void prvRollbackRxFile( OtaFileContext_t *C );              /* Call the TI CC3220SF file rollback API. */
 static int32_t prvCreateBootInfoFile( void );                       /* Create the CC3220SF boot info file. */
 
 
 static void prvRollbackBundle( void )
 {
-    DEFINE_OTA_METHOD_NAME("prvRollbackBundle");
-
 	int32_t lResult;
 	SlFsControl_t FsControl;
 
@@ -91,19 +100,17 @@ static void prvRollbackBundle( void )
 	                   ( _u32* ) NULL );
 	if (lResult != 0)
 	{
-		OTA_LOG_L1( "[%s] Bundle rollback failed (%d).\r\n", OTA_METHOD_NAME, lResult );
+		LogError( ( "Bundle rollback failed (%d).", lResult ) );
 	}
 	else
 	{
-		OTA_LOG_L1( "[%s] Bundle rollback succeeded\r\n", OTA_METHOD_NAME );
+		LogInfo( ( "Bundle rollback succeeded." ) );
 	}
 }
 
 
-static void prvRollbackRxFile(OTA_FileContext_t *C)
+static void prvRollbackRxFile(OtaFileContext_t *C)
 {
-    DEFINE_OTA_METHOD_NAME("prvRollbackRxFile");
-
     int32_t lResult;
     _u32 ulNewToken = 0UL;    /* New token is not retained. */
     SlFsControl_t FsControl;
@@ -111,7 +118,7 @@ static void prvRollbackRxFile(OTA_FileContext_t *C)
     FsControl.IncludeFilters = 0U;
     lResult = sl_FsCtl( SL_FS_CTL_ROLLBACK,
                         OTA_VENDOR_TOKEN,
-                        ( _u8* ) C->pucFilePath,
+                        ( _u8* ) C->pFilePath,
                         ( _u8* ) &FsControl,
                         ( _u16 ) sizeof( SlFsControl_t ),
                         ( _u8* ) NULL,
@@ -119,38 +126,38 @@ static void prvRollbackRxFile(OTA_FileContext_t *C)
                         ( _u32* ) &ulNewToken );
     if (lResult != 0)
     {
-        OTA_LOG_L1( "[%s] File %s rollback failed (%d).\r\n", OTA_METHOD_NAME, C->pucFilePath, lResult );
+        LogError( ( "File %s rollback failed (%d).", C->pFilePath, lResult ) );
     }
     else
     {
-        OTA_LOG_L1( "[%s] File %s rolled back.\r\n", OTA_METHOD_NAME, C->pucFilePath );
+        LogInfo( ( "File %s rolled back.", C->pFilePath ) );
     }
 }
 
 
 /* Abort access to an existing open file. This is only valid after a job starts successfully. */
 
-OTA_Err_t prvPAL_Abort(OTA_FileContext_t *C)
+OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 {
     /* Use this signature to abort a file transfer on the TI CC3220SF platform. */
     static _u8 pcTI_AbortSig[] = "A";
 
 	int32_t lResult;
     /* Calling this function with a NULL file handle is not an error. */
-	OTA_Err_t xReturnCode = kOTA_Err_None;
+	OtaErr_t xReturnCode = OTA_ERR_NONE;
 
     /* Check for null file handle since the agent may legitimately call this before a file is opened. */
-	if (C->lFileHandle != ( int32_t ) NULL)
+	if (C->pFile != ( int32_t ) NULL)
 	{
-		lResult = sl_FsClose( C->lFileHandle, ( _u8* ) NULL, ( _u8* ) pcTI_AbortSig, CONST_STRLEN( pcTI_AbortSig ) );
-		C->lFileHandle = ( int32_t ) NULL;
+		lResult = sl_FsClose( C->pFile, ( _u8* ) NULL, ( _u8* ) pcTI_AbortSig, CONST_STRLEN( pcTI_AbortSig ) );
+		C->pFile = ( int32_t ) NULL;
 		if ( lResult != 0 )
 		{
-			xReturnCode = ( uint32_t ) kOTA_Err_FileAbort | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask);
+			xReturnCode = ( uint32_t ) OTA_ERR_ABORT_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK);
 		}
 		else
 		{
-		    xReturnCode = kOTA_Err_None;
+		    xReturnCode = OTA_ERR_NONE;
 		}
 	    /* We aborted the file so attempt to roll back the entire bundle. This function
 	     * is called by prvOTA_Close but we only rollback the bundle if there was still
@@ -164,17 +171,15 @@ OTA_Err_t prvPAL_Abort(OTA_FileContext_t *C)
 
 /* Attempt to create a new receive file to write the file chunks to as they come in. */
 
-OTA_Err_t prvPAL_CreateFileForRx(OTA_FileContext_t *C)
+OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_CreateFileForRx");
-
     _u32        ulToken = OTA_VENDOR_TOKEN;     /* TI platform requires file tokens. We use a vendor token. */
     uint32_t    ulFlags;                        /* Flags used when opening the OTA FW image file. */
     int32_t     lResult, lRetry;
-    OTA_Err_t   xReturnCode = kOTA_Err_Uninitialized;
+    OtaErr_t   xReturnCode = OTA_ERR_UNINITIALIZED;
 
-    C->lFileHandle = ( int32_t ) NULL;
-    if ( C->ulFileSize <= OTA_MAX_MCU_IMAGE_SIZE )
+    C->pFile = ( int32_t ) NULL;
+    if ( C->fileSize <= OTA_MAX_MCU_IMAGE_SIZE )
     {
         lResult = prvCreateBootInfoFile();
         /* prvCreateBootInfoFile returns the number of bytes written or negative error. 0 is not allowed. */
@@ -187,24 +192,22 @@ OTA_Err_t prvPAL_CreateFileForRx(OTA_FileContext_t *C)
                           SL_FS_CREATE_SECURE | SL_FS_CREATE_VENDOR_TOKEN |
                           SL_FS_CREATE_MAX_SIZE( OTA_MAX_MCU_IMAGE_SIZE ) );
                 /* The file remains open until the OTA agent calls prvPAL_CloseFile() after transfer or failure. */
-                lResult = sl_FsOpen( ( _u8* ) C->pucFilePath, ( _u32 ) ulFlags, ( _u32* ) &ulToken );
+                lResult = sl_FsOpen( ( _u8* ) C->pFilePath, ( _u32 ) ulFlags, ( _u32* ) &ulToken );
                 if ( lResult > 0 )
                 {
-                    OTA_LOG_L1("[%s] Receive file created. Token: %u\r\n", OTA_METHOD_NAME, ulToken);
-                    C->lFileHandle = lResult;
-                    xReturnCode = kOTA_Err_None;
+                    LogInfo( ( "Receive file created. Token: %u", ulToken ) );
+                    C->pFile = lResult;
+                    xReturnCode = OTA_ERR_NONE;
                 }
                 else {
-                    OTA_LOG_L1("[%s] Error (%d) trying to create receive file.\r\n", OTA_METHOD_NAME, lResult);
+                    LogError( ( "Error (%d) trying to create receive file.", lResult ) );
                     if ( lResult == SL_ERROR_FS_FILE_IS_ALREADY_OPENED )
                     {
-                        #ifndef FREERTOS_ENABLE_UNIT_TESTS
                         /* System is in an inconsistent state and must be rebooted. */
-                        if ( prvPAL_ResetDevice() != kOTA_Err_None )
+                        if ( prvPAL_ResetDevice( C ) != OTA_ERR_NONE )
                         {
-                            OTA_LOG_L1("[%s] Failed to reset the device via software.\r\n", OTA_METHOD_NAME );
+                            LogError( ("Failed to reset the device via software." ) );
                         }
-                        #endif
                     }
                     else if ( lResult == SL_ERROR_FS_FILE_IS_PENDING_COMMIT )
                     {
@@ -217,21 +220,21 @@ OTA_Err_t prvPAL_CreateFileForRx(OTA_FileContext_t *C)
                         prvRollbackBundle( );
                     }
                     lRetry++;
-                    xReturnCode = ( uint32_t ) kOTA_Err_RxFileCreateFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask);
+                    xReturnCode = ( uint32_t ) OTA_ERR_RX_FILE_CREATE_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK);
                 }
-            } while ( ( xReturnCode != kOTA_Err_None ) && ( lRetry <= ( int32_t ) OTA_MAX_CREATE_RETRIES ) );
+            } while ( ( xReturnCode != OTA_ERR_NONE ) && ( lRetry <= ( int32_t ) OTA_MAX_CREATE_RETRIES ) );
         }
         else
         {
             /* Failed to create bootinfo file. */
-            xReturnCode = ( uint32_t ) kOTA_Err_BootInfoCreateFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask);
+            xReturnCode = ( uint32_t ) OTA_ERR_BOOT_INFO_CREATE_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK);
         }
     }
     else
     {
         /* File is too big for the platform. */
-        OTA_LOG_L1("[%s] Error (%d) trying to create receive file.\r\n", OTA_METHOD_NAME, SL_ERROR_FS_FILE_MAX_SIZE_EXCEEDED);
-        xReturnCode = ( uint32_t ) kOTA_Err_RxFileTooLarge | ( OTA_MAX_MCU_IMAGE_SIZE & ( uint32_t ) kOTA_PAL_ErrMask );
+        LogError( ( "Error (%d) trying to create receive file.", SL_ERROR_FS_FILE_MAX_SIZE_EXCEEDED ) );
+        xReturnCode = ( uint32_t ) OTA_ERR_RX_FILE_TOO_LARGE | ( OTA_MAX_MCU_IMAGE_SIZE & ( uint32_t ) OTA_PAL_ERR_MASK );
     }
     return xReturnCode;
 }
@@ -241,8 +244,6 @@ OTA_Err_t prvPAL_CreateFileForRx(OTA_FileContext_t *C)
 
 static int32_t prvCreateBootInfoFile( void )
 {
-    DEFINE_OTA_METHOD_NAME("prvCreateBootInfoFile");
-
     /* Name of the CC3220SF boot info file. */
     static const _u8 pcTI_BootInfoFilename[] = "/sys/mcubootinfo.bin";  /* Placed here for MISRA-C. */
 
@@ -258,7 +259,7 @@ static int32_t prvCreateBootInfoFile( void )
                                 ( _u32* ) &ulToken );   /*lint !e9087 Safe because uint32_t ulToken and _u32 are the same size on CC3220SF. */
     if ( lFileHandle < 0 )
     {
-    		OTA_LOG_L1("[%s] Error opening bootinfo file : %d\n\r", OTA_METHOD_NAME, lFileHandle);
+            LogError( ( "Error opening bootinfo file : %d", lFileHandle ) );
     		/* Propagate error to caller. */
     		lReturnCode = lFileHandle;
     }
@@ -270,7 +271,7 @@ static int32_t prvCreateBootInfoFile( void )
         lReturnCode = sl_FsWrite( lFileHandle, 0UL, ( uint8_t* ) &sBootInfo, (_u32 ) sizeof( sBootInfo_t ) );
         if ( lReturnCode != ( int32_t ) sizeof( sBootInfo_t ) )
         {
-            OTA_LOG_L1("[%s] Error writing bootinfo file : %d\n\r", OTA_METHOD_NAME, lReturnCode);
+            LogError( ( "Error writing bootinfo file : %d", lReturnCode ) );
             if ( lReturnCode > 0 )
             {
                 /* Force a fail result to the caller. Map to zero bytes written. */
@@ -282,7 +283,7 @@ static int32_t prvCreateBootInfoFile( void )
         lCloseResult = sl_FsClose( lFileHandle, ( uint8_t* ) NULL, ( uint8_t* ) NULL, 0UL );
         if ( lCloseResult < 0 )
         {
-            OTA_LOG_L1("[%s] Error closing bootinfo file : %d\n\r", OTA_METHOD_NAME, lCloseResult);
+            LogError( ( "Error closing bootinfo file : %d", lCloseResult ) );
             /* Return the most recent error code to the caller. */
             lReturnCode = lCloseResult;
         }
@@ -293,22 +294,20 @@ static int32_t prvCreateBootInfoFile( void )
 
 /* Close the specified file. This will also authenticate the file if it is marked as secure. */
 
-OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t *C )
+OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_CloseFile");
-
 	int32_t lResult;
-    OTA_Err_t xReturnCode = kOTA_Err_Uninitialized;
+    OtaErr_t xReturnCode = OTA_ERR_UNINITIALIZED;
 
 	/* Let SimpleLink API handle error checks so we get an error code for free. */
-	OTA_LOG_L1( "[%s] Authenticating and closing file.\r\n", OTA_METHOD_NAME );
-	lResult = ( int32_t ) sl_FsClose( ( _i32 ) ( C->lFileHandle ), C->pucCertFilepath, C->pxSignature->ucData, ( _u32 ) ( C->pxSignature->usSize ) );
+	LogInfo( ( "Authenticating and closing file." ) );
+	lResult = ( int32_t ) sl_FsClose( ( _i32 ) ( C->pFile ), C->pCertFilepath, C->pSignature->data, ( _u32 ) ( C->pSignature->size ) );
 
 	switch ( lResult )
 	{
 	    case 0L:
 	    {
-	        xReturnCode = kOTA_Err_None;
+	        xReturnCode = OTA_ERR_NONE;
 	        break;
 	    }
 
@@ -323,13 +322,13 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t *C )
 	    case SL_ERROR_FS_WRONG_CERTIFICATE_FILE_NAME:
 	    case SL_ERROR_FS_NO_CERTIFICATE_STORE:
 	    {
-            xReturnCode = ( uint32_t ) kOTA_Err_SignatureCheckFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask );   /*lint !e571 intentionally cast lResult to larger composite error code. */
+            xReturnCode = ( uint32_t ) OTA_ERR_SIGNATURE_CHECK_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK );   /*lint !e571 intentionally cast lResult to larger composite error code. */
             break;
 	    }
 
 	    default:    /*lint -e788 Keep lint quiet about the obvious unused states we're catching here. */
 	    {
-	        xReturnCode = ( uint32_t ) kOTA_Err_FileClose | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask );   /*lint !e571 intentionally cast lResult to larger composite error code. */
+	        xReturnCode = ( uint32_t ) OTA_ERR_FILE_CLOSE | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK );   /*lint !e571 intentionally cast lResult to larger composite error code. */
 	        break;
 	    }
 	}
@@ -339,11 +338,11 @@ OTA_Err_t prvPAL_CloseFile( OTA_FileContext_t *C )
 
 /* Reset the device. */
 
-OTA_Err_t prvPAL_ResetDevice( void )
+OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_ResetDevice");
+    ( void ) C;
 
-    OTA_LOG_L1( "[%s] Stopping Simplelink and resetting the device.\r\n", OTA_METHOD_NAME );
+    LogInfo( ( "Stopping Simplelink and resetting the device." ) );
 
     /* Stop Simplelink. This will activate the Bundle. Otherwise, we'll get a commit error later. */
     sl_Stop( OTA_SL_STOP_TIMEOUT );     /*lint !e534 ignore return code because we are going to reset the device below. */
@@ -355,85 +354,84 @@ OTA_Err_t prvPAL_ResetDevice( void )
     /* We shouldn't actually get here if the board supports the auto reset.
      * But, it doesn't hurt anything if we do although someone will need to
      * reset the device for the new image to boot. */
-    return kOTA_Err_ResetNotSupported;
+    return OTA_ERR_RESET_NOT_SUPPORTED;
 }
 
 
 /* Activate the new MCU image by resetting the device. */
 
-OTA_Err_t prvPAL_ActivateNewImage(void)
+OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_ActivateNewImage");
-
-    OTA_LOG_L1( "[%s] Activating the new MCU image.\r\n", OTA_METHOD_NAME );
-    return prvPAL_ResetDevice();
+    LogInfo( ( "Activating the new MCU image." ) );
+    return prvPAL_ResetDevice( C );
 }
 
 
 /* Platform specific handling of the last transferred OTA file/s.
- * For the TI CC3220SF, commit the file bundle if the state == eOTA_ImageState_Accepted.
+ * For the TI CC3220SF, commit the file bundle if the state == OtaImageStateAccepted.
  */
 
-OTA_Err_t prvPAL_SetPlatformImageState (OTA_ImageState_t eState)
+OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+                                       OtaImageState_t eState )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_SetPlatformImageState");
-
 	int32_t lResult;
     SlFsControl_t FsControl;
     FsControl.IncludeFilters = 0U;
-    OTA_Err_t xReturnCode = kOTA_Err_Uninitialized;
+    OtaErr_t xReturnCode = OTA_ERR_UNINITIALIZED;
 
-	if (eState == eOTA_ImageState_Accepted)
+    ( void ) C;
+
+	if (eState == OtaImageStateAccepted)
 	{
 		PRCMPeripheralReset( ( _u32 ) PRCM_WDT);
 		lResult = sl_FsCtl( SL_FS_CTL_BUNDLE_COMMIT, ( _u32 ) 0, ( _u8* ) NULL, (_u8 *) &FsControl, ( _u16) sizeof( SlFsControl_t ), ( _u8* ) NULL, ( _u16 ) 0 , ( _u32* ) NULL );
 		if (lResult != 0)
 		{
-			OTA_LOG_L1("[%s] Accepted final image but commit failed (%d).\r\n", OTA_METHOD_NAME, lResult);
-			xReturnCode = ( uint32_t ) kOTA_Err_CommitFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask );
+			LogWarn( ( "Accepted final image but commit failed (%d).", lResult ) );
+			xReturnCode = ( uint32_t ) OTA_ERR_COMMIT_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK );
 		}
 		else
 		{	/* Success. */
-			OTA_LOG_L1("[%s] Accepted and committed final image.\r\n", OTA_METHOD_NAME);
-            xReturnCode = kOTA_Err_None;
+			LogInfo( ( "Accepted and committed final image." ) );
+            xReturnCode = OTA_ERR_NONE;
 		}
 	}
-	else if ( eState == eOTA_ImageState_Rejected )
+	else if ( eState == OtaImageStateRejected )
     {
         lResult = sl_FsCtl( SL_FS_CTL_BUNDLE_ROLLBACK, ( _u32 ) 0, ( _u8* ) NULL, (_u8 *) &FsControl, ( _u16) sizeof( SlFsControl_t ), ( _u8* ) NULL, ( _u16 ) 0 , ( _u32* ) NULL );
         if (lResult != 0)
         {
-            OTA_LOG_L1("[%s] Bundle rollback failed after reject (%d).\r\n", OTA_METHOD_NAME, lResult);
-            xReturnCode = ( uint32_t ) kOTA_Err_RejectFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask );
+            LogError( ( "Bundle rollback failed after reject (%d).", lResult ) );
+            xReturnCode = ( uint32_t ) OTA_ERR_REJECT_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK );
         }
         else
         {   /* Success. */
-            OTA_LOG_L1("[%s] Image was rejected and bundle files rolled back.\r\n", OTA_METHOD_NAME);
-            xReturnCode = kOTA_Err_None;
+            LogWarn( ( "Image was rejected and bundle files rolled back." ) );
+            xReturnCode = OTA_ERR_NONE;
         }
     }
-    else if ( eState == eOTA_ImageState_Aborted )
+    else if ( eState == OtaImageStateAborted )
     {
         lResult = sl_FsCtl( SL_FS_CTL_BUNDLE_ROLLBACK, ( _u32 ) 0, ( _u8* ) NULL, (_u8 *) &FsControl, ( _u16) sizeof( SlFsControl_t ), ( _u8* ) NULL, ( _u16 ) 0 , ( _u32* ) NULL );
         if (lResult != 0)
         {
-            OTA_LOG_L1("[%s] Bundle rollback failed after abort (%d).\r\n", OTA_METHOD_NAME, lResult);
-            xReturnCode = ( uint32_t ) kOTA_Err_AbortFailed | ( ( ( uint32_t ) lResult ) & ( uint32_t ) kOTA_PAL_ErrMask );
+            LogError( ( "Bundle rollback failed after abort (%d).", lResult ) );
+            xReturnCode = ( uint32_t ) OTA_ERR_ABORT_FAILED | ( ( ( uint32_t ) lResult ) & ( uint32_t ) OTA_PAL_ERR_MASK );
         }
         else
         {   /* Success. */
-            OTA_LOG_L1("[%s] Agent aborted and bundle files rolled back.\r\n", OTA_METHOD_NAME);
-            xReturnCode = kOTA_Err_None;
+            LogWarn( ( "Agent aborted and bundle files rolled back." ) );
+            xReturnCode = OTA_ERR_NONE;
         }
     }
-    else if ( eState == eOTA_ImageState_Testing )
+    else if ( eState == OtaImageStateTesting )
     {
-        xReturnCode = kOTA_Err_None;
+        xReturnCode = OTA_ERR_NONE;
     }
     else
     {
-        OTA_LOG_L1("[%s] Unknown state received %d.\r\n", OTA_METHOD_NAME, ( int32_t) eState);
-        xReturnCode = kOTA_Err_BadImageState;
+        LogError( ( "Unknown state received %d.", ( int32_t) eState ) );
+        xReturnCode = OTA_ERR_BAD_IMAGE_STATE;
     }
 	return xReturnCode;
 }
@@ -451,60 +449,57 @@ OTA_Err_t prvPAL_SetPlatformImageState (OTA_ImageState_t eState)
  * pass, the application shall call OTA_ActivateNewImage() to reset the device.
  *
  * Returns one of the following:
- *   eOTA_PAL_ImageState_PendingCommit (new firmware is in the self test phase)
- *   eOTA_PAL_ImageState_Valid         (new firmware is valid/committed)
- *   eOTA_PAL_ImageState_Invalid       (new firmware is invalid/rejected)
+ *   OtaPalImageStatePendingCommit (new firmware is in the self test phase)
+ *   OtaPalImageStateValid         (new firmware is valid/committed)
+ *   OtaPalImageStateInvalid       (new firmware is invalid/rejected)
  */
-OTA_PAL_ImageState_t prvPAL_GetPlatformImageState ( void )
+OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_GetPlatformImageState");
-
     /* Specific name of the CC3220SF MCU firmware image file per CC3220SF documentation. */
     static const _u8 pcTI_FW_Filename[] = "/sys/mcuflashimg.bin";
 
     int32_t lResult;
     SlFsFileInfo_t xFileInfo = { 0U };                          /* MISRA-C requirement. */
-    OTA_PAL_ImageState_t eState = eOTA_PAL_ImageState_Unknown;
+    OtaPalImageState_t eState = OtaPalImageStateUnknown;
+
+    ( void ) C;
 
     lResult = sl_FsGetInfo( pcTI_FW_Filename, OTA_VENDOR_TOKEN, &xFileInfo );
     if ( lResult == 0 )
     {
-        OTA_LOG_L1("[%s] xFileInfo.Flags = %04x\r\n", OTA_METHOD_NAME, xFileInfo.Flags );
+        LogDebug( ( "xFileInfo.Flags = %04x", xFileInfo.Flags ) );
         if ( ( xFileInfo.Flags & ( _u16 ) SL_FS_INFO_PENDING_BUNDLE_COMMIT ) != 0U )
         {
-            eState = eOTA_PAL_ImageState_PendingCommit;
-            OTA_LOG_L1("[%s] eOTA_PAL_ImageState_PendingCommit\r\n", OTA_METHOD_NAME );
+            eState = OtaPalImageStatePendingCommit;
+            LogDebug( ("Current platform image state: OtaPalImageStatePendingCommit" ) );
         }
         else if ( ( xFileInfo.Flags & OTA_FW_FILE_CHECK_FLAGS ) == OTA_FW_FILE_CHECK_GOOD )
         {
-            eState = eOTA_PAL_ImageState_Valid;
-            OTA_LOG_L1("[%s] eOTA_PAL_ImageState_Valid\r\n", OTA_METHOD_NAME );
+            eState = OtaPalImageStateValid;
+            LogDebug( ( "Current platform image state: OtaPalImageStateValid" ) );
         }
         else    /* All other combinations are considered invalid. */
         {
-            eState = eOTA_PAL_ImageState_Invalid;
-            OTA_LOG_L1("[%s] eOTA_PAL_ImageState_Invalid\r\n", OTA_METHOD_NAME );
+            eState = OtaPalImageStateInvalid;
+            LogDebug( ( "Current platform image state: OtaPalImageStateInvalid" ) );
         }
     }
     else
     {
-        OTA_LOG_L1("[%s] sl_FsGetInfo failed (%d) on %s\r\n", OTA_METHOD_NAME, ( int32_t ) lResult, pcTI_FW_Filename );
-        eState = eOTA_PAL_ImageState_Invalid;
+        LogError( ( "sl_FsGetInfo failed (%d) on %s", ( int32_t ) lResult, pcTI_FW_Filename ) );
+        eState = OtaPalImageStateInvalid;
     }
     return eState;
 }
 
-#ifdef FREERTOS_ENABLE_UNIT_TESTS
-#include "aws_ota_pal_test_access_define.h"
-#endif
-
 /* Write a block of data to the specified file.
  * Returns the most recent number of bytes written upon success or a negative error code.
  */
-int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C, uint32_t ulOffset, uint8_t * const pcData, uint32_t ulBlockSize )
+int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+                           uint32_t ulOffset,
+                           uint8_t * const pcData,
+                           uint32_t ulBlockSize )
 {
-    DEFINE_OTA_METHOD_NAME("prvPAL_WriteBlock");
-
 	int32_t lResult;
 	uint32_t ulWritten = 0;
 	uint32_t ulRetry;
@@ -512,7 +507,7 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C, uint32_t ulOffset, uint8
 
 	for ( ulRetry = 0UL; ulRetry <= OTA_MAX_PAL_WRITE_RETRIES; ulRetry++ )
 	{
-		lResult = sl_FsWrite( C->lFileHandle, ulOffset + ulWritten, &pcData[ ulWritten ], ulBlockSize );
+		lResult = sl_FsWrite( C->pFile, ulOffset + ulWritten, &pcData[ ulWritten ], ulBlockSize );
 		if ( lResult >= 0 )
 		{
 		    if ( ulBlockSize == ( uint32_t) lResult )   /* If we wrote all of the bytes requested, we're done. */
@@ -532,12 +527,12 @@ int16_t prvPAL_WriteBlock( OTA_FileContext_t * const C, uint32_t ulOffset, uint8
 	}
     if ( ulRetry > OTA_MAX_PAL_WRITE_RETRIES )
     {
-		OTA_LOG_L1("[%s] Aborted after %u retries.\r\n", OTA_METHOD_NAME, OTA_MAX_PAL_WRITE_RETRIES);
+		LogWarn( ( "Aborted after %u retries.", OTA_MAX_PAL_WRITE_RETRIES ) );
 		lReturnVal = ( int16_t ) SL_ERROR_FS_FAILED_TO_WRITE;
     }
     else
     {
         lReturnVal = ( int16_t ) lResult;
-    	}
+    }
     return lReturnVal;
 }
