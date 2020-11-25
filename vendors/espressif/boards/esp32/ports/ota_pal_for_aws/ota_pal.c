@@ -182,7 +182,7 @@ static void _esp_ota_ctx_close( OtaFileContext_t * C )
 }
 
 /* Abort receiving the specified OTA update by closing the file. */
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
     OtaErr_t ota_ret = OTA_ERR_ABORT_FAILED;
 
@@ -200,7 +200,7 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 }
 
 /* Attempt to create a new receive file for the file chunks as they come in. */
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
     if( ( NULL == C ) || ( NULL == C->pFilePath ) )
     {
@@ -464,7 +464,7 @@ end:
 }
 
 /* Close the specified file. This shall authenticate the file if it is marked as secure. */
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     OtaErr_t result = OTA_ERR_NONE;
 
@@ -529,7 +529,7 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
     return result;
 }
 
-OtaErr_t IRAM_ATTR prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t IRAM_ATTR otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -539,7 +539,7 @@ OtaErr_t IRAM_ATTR prvPAL_ResetDevice( OtaFileContext_t * const C )
     return OTA_ERR_NONE;
 }
 
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -549,7 +549,7 @@ OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
         {
             ESP_LOGE( TAG, "aws_esp_ota_end failed!" );
             esp_partition_erase_range( ota_ctx.update_partition, 0, ota_ctx.update_partition->size );
-            prvPAL_ResetDevice( C );
+            otaPal_ResetDevice( C );
         }
 
         esp_err_t err = aws_esp_ota_set_boot_partition( ota_ctx.update_partition );
@@ -561,11 +561,11 @@ OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
             _esp_ota_ctx_clear( &ota_ctx );
         }
 
-        prvPAL_ResetDevice( C );
+        otaPal_ResetDevice( C );
     }
 
     _esp_ota_ctx_clear( &ota_ctx );
-    prvPAL_ResetDevice( C );
+    otaPal_ResetDevice( C );
     return OTA_ERR_NONE;
 }
 
@@ -596,7 +596,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
     return iBlockSize;
 }
 
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     OtaPalImageState_t eImageState = OtaPalImageStateUnknown;
     uint32_t ota_flags;
@@ -647,7 +647,7 @@ static void disable_rtc_wdt()
     rtc_wdt_disable();
 }
 
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     OtaErr_t eResult = OTA_ERR_NONE;
