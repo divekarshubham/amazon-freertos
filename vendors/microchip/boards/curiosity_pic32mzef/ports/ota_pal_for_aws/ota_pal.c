@@ -242,7 +242,7 @@ static void prvPAL_WatchdogDisable( void )
  * @brief Attempts to create a new receive file to write the file chunks to as
  * they come in.
  */
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
     int32_t lErr = MCHP_ERR_NONE;
     OtaErr_t xReturnCode = OTA_ERR_UNINITIALIZED;
@@ -289,7 +289,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
  * @brief Aborts access to an existing open file. This is only valid after a job
  * starts successfully.
  */
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
     /* Check for null file handle since we may call this before a file is actually opened. */
     prvContextClose( C );
@@ -301,7 +301,7 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 /* Write a block of data to the specified file.
  * Returns the number of bytes written on success or negative error code.
  */
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pcData,
                            uint32_t ulBlockSize )
@@ -360,7 +360,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
  * @brief Closes the specified file. This will also authenticate the file if it
  * is marked as secure.
  */
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     OtaErr_t eResult = OTA_ERR_NONE;
 
@@ -640,7 +640,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 
 /* Reset the device. */
 
-OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -659,17 +659,17 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 
 /* Activate the new MCU image by resetting the device. */
 
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     LogInfo( ( "Activating the new MCU image." ) );
-    return prvPAL_ResetDevice( C );
+    return otaPal_ResetDevice( C );
 }
 
 
 /* Platform specific handling of the last transferred OTA file.
  * Commit the image if the state == OtaImageStateAccepted.
  */
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     BootImageDescriptor_t xDescCopy;
@@ -832,7 +832,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
  * we assume there is something wrong with the firmware and reset the device,
  * causing it to rollback to the previous code.
  */
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     BootImageDescriptor_t xDescCopy;
     OtaPalImageState_t eImageState = OtaPalImageStateInvalid;
