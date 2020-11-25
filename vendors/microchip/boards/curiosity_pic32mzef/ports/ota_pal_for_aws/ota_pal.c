@@ -28,7 +28,7 @@
 
 /*lint -e9045 Ignore advisories about non-hidden definitions in header files. */
 
-#include "ota_platform_interface.h"
+#include "ota_pal.h"
 
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
  * without a custom config. If a custom config is provided, the
@@ -45,7 +45,6 @@
 #include "aws_nvm.h"
 #include "iot_crypto.h"
 #include "core_pkcs11_config.h"
-#include "aws_ota_codesigner_certificate.h"
 
 #include "system/reset/sys_reset.h"
 
