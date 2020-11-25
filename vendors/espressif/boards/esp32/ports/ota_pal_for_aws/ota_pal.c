@@ -23,7 +23,6 @@
 #include <string.h>
 #include "ota.h"
 #include "ota_pal.h"
-#include "ota_platform_interface.h"
 #include "ota_interface_private.h"
 
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
