@@ -31,9 +31,9 @@
 /* Amazon FreeRTOS include. */
 #include "FreeRTOS.h"
 #include "ota.h"
+#include "ota_pal.h"
 #include "iot_crypto.h"
 #include "core_pkcs11.h"
-#include "aws_ota_codesigner_certificate.h"
 
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
  * without a custom config. If a custom config is provided, the
@@ -245,9 +245,9 @@ static volatile uint32_t gs_header_flashing_task;
 
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
-    LogDebug( ( "prvPAL_CreateFileForRx is called." ) );
+    LogDebug( ( "otaPal_CreateFileForRx is called." ) );
     LogDebug( ( "Compiled in [%s] [%s].", __DATE__, __TIME__ ) );
     OtaErr_t eResult = OTA_ERR_UNINITIALIZED;
     flash_interrupt_config_t cb_func_info;
@@ -318,9 +318,9 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
-    LogDebug( ( "prvPAL_Abort is called." ) );
+    LogDebug( ( "otaPal_Abort is called." ) );
 
     OtaErr_t eResult = OTA_ERR_NONE;
 
@@ -365,7 +365,7 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 /*-----------------------------------------------------------*/
 
 /* Write a block of data to the specified file. */
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pacData,
                            uint32_t ulBlockSize )
@@ -375,7 +375,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
     static uint8_t flash_block_array[ FLASH_CF_MIN_PGM_SIZE ];
     uint8_t * packet_buffer;
 
-    LogDebug( ( "prvPAL_WriteBlock is called." ) );
+    LogDebug( ( "otaPal_WriteBlock is called." ) );
 
     xSemaphoreTake( xSemaphoreWriteBlock, portMAX_DELAY );
 
@@ -448,7 +448,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     OtaErr_t eResult = OTA_ERR_NONE;
 
@@ -666,7 +666,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -707,19 +707,19 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     LogInfo( ( "Changing the Startup Bank" ) );
 
     /* reset for self testing */
     vTaskDelay( 5000 );
-    prvPAL_ResetDevice( C ); /* no return from this function */
+    otaPal_ResetDevice( C ); /* no return from this function */
 
     return OTA_ERR_NONE;
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     flash_interrupt_config_t cb_func_info;
@@ -727,7 +727,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 
     ( void ) C;
 
-    LogDebug( ( "prvPAL_SetPlatformImageState is called." ) );
+    LogDebug( ( "otaPal_SetPlatformImageState is called." ) );
 
     /* Save the image state to eSavedAgentState. */
     if( OtaImageStateTesting == load_firmware_control_block.eSavedAgentState )
@@ -819,13 +819,13 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 }
 /*-----------------------------------------------------------*/
 
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     OtaPalImageState_t ePalState = OtaPalImageStateUnknown;
 
     ( void ) C;
 
-    LogDebug( ( "prvPAL_GetPlatformImageState is called." ) );
+    LogDebug( ( "otaPal_GetPlatformImageState is called." ) );
 
     switch( load_firmware_control_block.eSavedAgentState )
     {
@@ -848,7 +848,7 @@ OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
             break;
     }
 
-    LogDebug( ( "Function call: prvPAL_GetPlatformImageState: [%d]", ePalState ) );
+    LogDebug( ( "Function call: otaPal_GetPlatformImageState: [%d]", ePalState ) );
     return ePalState; /*lint !e64 !e480 !e481 I/O calls and return type are used per design. */
 }
 /*-----------------------------------------------------------*/
