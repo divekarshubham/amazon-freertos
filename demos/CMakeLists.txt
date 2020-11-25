@@ -23,6 +23,7 @@ afr_module_sources(
         "${AFR_DEMOS_DIR}/include/iot_config_common.h"
         "${AFR_DEMOS_DIR}/include/iot_demo_logging.h"
         "${AFR_DEMOS_DIR}/include/iot_demo_runner.h"
+        "${AFR_DEMOS_DIR}/ota/ota_config.h"
 )
 afr_module_include_dirs(
     ${AFR_CURRENT_MODULE}

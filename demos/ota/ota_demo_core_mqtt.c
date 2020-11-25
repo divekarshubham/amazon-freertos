@@ -45,8 +45,8 @@
 /* Transport interface implementation include header for TLS. */
 #include "transport_secure_sockets.h"
 
-/* Clock for timer. */
-#include "clock.h"
+// /* Clock for timer. */
+// #include "clock.h"
 
 /* MQTT include. */
 #include "core_mqtt.h"
