@@ -30,10 +30,9 @@
 /* FreeRTOS include. */
 #include "FreeRTOS.h"
 #include "ota.h"
-#include "ota_platform_interface.h"
+#include "ota_pal.h"
 #include "ota_private.h"
 #include "aws_ota_pal_settings.h"
-#include "aws_ota_codesigner_certificate.h"
 
 #include "asn1utility.h"
 #include "mbedtls/base64.h"
@@ -182,7 +181,7 @@ OtaErr_t prvErasePages( size_t xFrom,
     return xStatus;
 }
 
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
     ret_code_t xErrCode;
 
@@ -223,7 +222,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
     C->pFile = ( int32_t ) NULL;
 
@@ -238,13 +237,13 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pacData,
                            uint32_t ulBlockSize )
 {
     /* We assume that the flash is already erased by this address (it should be, as we erase it in the
-     * prvPAL_CreateFileForRx, but the second write to the same position can break this invariant.
+     * otaPal_CreateFileForRx, but the second write to the same position can break this invariant.
      * Anyway, the OTA procedure must not try to write to the same addresses */
     ret_code_t xErrCode = prvWriteFlash( otapalSECOND_BANK_START + otapalDESCRIPTOR_SIZE + ulOffset, ulBlockSize, pacData );
 
@@ -262,7 +261,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     OtaErr_t xError;
     ret_code_t xStatus;
@@ -387,7 +386,7 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -396,17 +395,17 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     ( void ) C;
 
     /* FIX ME. */
-    prvPAL_ResetDevice( C );
+    otaPal_ResetDevice( C );
     return OTA_ERR_UNINITIALIZED;
 }
 /*-----------------------------------------------------------*/
 
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     OtaErr_t xStatus = OTA_ERR_NONE;
@@ -493,7 +492,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 }
 /*-----------------------------------------------------------*/
 
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     OtaPalImageState_t xImageState = OtaPalImageStateInvalid;
 
