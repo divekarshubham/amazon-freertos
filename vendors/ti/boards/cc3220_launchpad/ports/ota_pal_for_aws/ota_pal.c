@@ -26,7 +26,7 @@
 /* OTA PAL implementation for TI CC3220SF platform. */
 
 #include "ota.h"
-#include "ota_platform_interface.h"
+#include "ota_pal.h"
 
 /* OTA_DO_NOT_USE_CUSTOM_CONFIG allows building the OTA library
  * without a custom config. If a custom config is provided, the
@@ -141,7 +141,7 @@ static void prvRollbackRxFile( OtaFileContext_t * C )
 
 /* Abort access to an existing open file. This is only valid after a job starts successfully. */
 
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
     /* Use this signature to abort a file transfer on the TI CC3220SF platform. */
     static _u8 pcTI_AbortSig[] = "A";
@@ -178,7 +178,7 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 
 /* Attempt to create a new receive file to write the file chunks to as they come in. */
 
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
     _u32 ulToken = OTA_VENDOR_TOKEN; /* TI platform requires file tokens. We use a vendor token. */
     uint32_t ulFlags;                /* Flags used when opening the OTA FW image file. */
@@ -202,7 +202,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
                             SL_FS_CREATE_PUBLIC_WRITE | SL_FS_WRITE_BUNDLE_FILE |
                             SL_FS_CREATE_SECURE | SL_FS_CREATE_VENDOR_TOKEN |
                             SL_FS_CREATE_MAX_SIZE( OTA_MAX_MCU_IMAGE_SIZE ) );
-                /* The file remains open until the OTA agent calls prvPAL_CloseFile() after transfer or failure. */
+                /* The file remains open until the OTA agent calls otaPal_CloseFile() after transfer or failure. */
                 lResult = sl_FsOpen( ( _u8 * ) C->pFilePath, ( _u32 ) ulFlags, ( _u32 * ) &ulToken );
 
                 if( lResult > 0 )
@@ -218,7 +218,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
                     if( lResult == SL_ERROR_FS_FILE_IS_ALREADY_OPENED )
                     {
                         /* System is in an inconsistent state and must be rebooted. */
-                        if( prvPAL_ResetDevice( C ) != OTA_ERR_NONE )
+                        if( otaPal_ResetDevice( C ) != OTA_ERR_NONE )
                         {
                             LogError( ( "Failed to reset the device via software." ) );
                         }
@@ -317,7 +317,7 @@ static int32_t prvCreateBootInfoFile( void )
 
 /* Close the specified file. This will also authenticate the file if it is marked as secure. */
 
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     int32_t lResult;
     OtaErr_t xReturnCode = OTA_ERR_UNINITIALIZED;
@@ -356,7 +356,7 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 
 /* Reset the device. */
 
-OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -378,10 +378,10 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 
 /* Activate the new MCU image by resetting the device. */
 
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     LogInfo( ( "Activating the new MCU image." ) );
-    return prvPAL_ResetDevice( C );
+    return otaPal_ResetDevice( C );
 }
 
 
@@ -389,7 +389,7 @@ OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
  * For the TI CC3220SF, commit the file bundle if the state == OtaImageStateAccepted.
  */
 
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     int32_t lResult;
@@ -476,7 +476,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
  *   OtaPalImageStateValid         (new firmware is valid/committed)
  *   OtaPalImageStateInvalid       (new firmware is invalid/rejected)
  */
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     /* Specific name of the CC3220SF MCU firmware image file per CC3220SF documentation. */
     static const _u8 pcTI_FW_Filename[] = "/sys/mcuflashimg.bin";
@@ -521,7 +521,7 @@ OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
 /* Write a block of data to the specified file.
  * Returns the most recent number of bytes written upon success or a negative error code.
  */
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pcData,
                            uint32_t ulBlockSize )
