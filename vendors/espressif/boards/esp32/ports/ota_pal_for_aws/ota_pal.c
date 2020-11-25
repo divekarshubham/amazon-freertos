@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "ota.h"
+#include "ota_pal.h"
 #include "ota_platform_interface.h"
 #include "ota_interface_private.h"
 
@@ -44,7 +45,6 @@
 #include "esp_log.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/rtc_wdt.h"
-#include "aws_ota_codesigner_certificate.h"
 
 #include "esp_partition.h"
 #include "esp_spi_flash.h"
