@@ -44,12 +44,11 @@
 /* Amazon FreeRTOS include. */
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
-#include "ota_platform_interface.h"
+#include "ota_pal.h"
 #include "bootutil/bootutil.h"
 #include "sysflash/sysflash.h"
 #include "flash_map_backend/flash_map_backend.h"
 #include "cy_pdl.h"
-#include "aws_ota_codesigner_certificate.h"
 #include "mbedtls/base64.h"
 #include "mbedtls/sha256.h"
 #include "iot_crypto.h"
@@ -195,7 +194,7 @@ static OTA_ImageState_t current_OTA_ImageState = OtaImageStateUnknown;
 /**
  * @brief Last time we ran a signature check
  *
- * Keep track of the last signature check value for prvPAL_SetPlatformImageState
+ * Keep track of the last signature check value for otaPal_SetPlatformImageState
  */
 static OtaErr_t last_signature_check;
 
@@ -471,7 +470,7 @@ static OtaErr_t prvPAL_FileSignatureCheckInit( OtaFileContext_t * const C )
  *
  * NOTE: This function is used for a tarball OTA file.
  *
- * This function is called from prvPAL_WriteBlock().
+ * This function is called from otaPal_WriteBlock().
  *
  * @param[in] C         OTA file context information.
  * @param[in] buffer    current buffer to include in signature check
@@ -509,7 +508,7 @@ static OtaErr_t prvPAL_FileSignatureCheckStep( OtaFileContext_t * const C,
  *
  * NOTE: This function is used for a tarball OTA file.
  *
- * This function is called from prvPAL_CloseFile().
+ * This function is called from otaPal_CloseFile().
  *
  * @param[in] C         OTA file context information.
  *
@@ -564,7 +563,7 @@ static OtaErr_t prvPAL_FileSignatureCheckFinal( OtaFileContext_t * const C )
  * OTA_ERR_NONE is returned when aborting access to the open file was successful.
  * OTA_ERR_ABORT_FAILED is returned when aborting access to the open file context was unsuccessful.
  */
-OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
+OtaErr_t otaPal_Abort( OtaFileContext_t * const C )
 {
     OtaErr_t result = OTA_ERR_NONE;
     const struct flash_area * fap;
@@ -619,7 +618,7 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
  * OTA_ERR_BOOT_INFO_CREATE_FAILED is returned if the bootloader information file creation fails.
  * OTA_ERR_RX_FILE_CREATE_FAILED is returned for other errors creating the file in the device's non-volatile memory.
  */
-OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
+OtaErr_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
 {
     OtaErr_t result = OTA_ERR_NONE;
     const struct flash_area * fap;
@@ -658,7 +657,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
  *
  * @note The input OtaFileContext_t C is checked for NULL by the OTA agent before this
  * function is called. This function is called only at the end of block ingestion.
- * prvPAL_CreateFileForRx() must succeed before this function is reached, so
+ * otaPal_CreateFileForRx() must succeed before this function is reached, so
  * C->pFile(or C->pFile) is never NULL.
  * The certificate path on the device is a required job document field in the OTA Agent,
  * so C->pCertFilepath is never NULL.
@@ -677,7 +676,7 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
  * OTA_ERR_BAD_SIGNER_CERT is returned for errors in the certificate itself.
  * OTA_ERR_FILE_CLOSE is returned when closing the file fails.
  */
-OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
+OtaErr_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
     OtaErr_t result = OTA_ERR_NONE;
 
@@ -820,7 +819,7 @@ _exit_CloseFile:
  *
  * @return The number of bytes written on a success, or a negative error code from the platform abstraction layer.
  */
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t ulOffset,
                            uint8_t * const pcData,
                            uint32_t ulBlockSize )
@@ -958,10 +957,10 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
  * @return The OTA PAL layer error code combined with the MCU specific error code. See OTA Agent
  * error codes information in aws_ota_agent.h.
  */
-OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
+OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 {
     LogInfo( ( "entered %s()", __func__ ) );
-    prvPAL_ResetDevice( C );
+    otaPal_ResetDevice( C );
     return OTA_ERR_NONE;
 }
 
@@ -976,7 +975,7 @@ OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
  * @return The OTA PAL layer error code combined with the MCU specific error code. See OTA Agent
  * error codes information in aws_ota_agent.h.
  */
-OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
+OtaErr_t otaPal_ResetDevice( OtaFileContext_t * const C )
 {
     ( void ) C;
 
@@ -1010,23 +1009,23 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
  *
  *   IMPORTANT NOTES:
  *
- *   Our implementation checks the signature on the call to prvPAL_CloseFile().
+ *   Our implementation checks the signature on the call to otaPal_CloseFile().
  *   We assume that if the updated app is running in slot 0 that it is acceptable.
  *
- *   if prvPAL_SetPlatformImageState() is called and the sys_ctx is NULL, we are not in the process of downloading a new image.
+ *   if otaPal_SetPlatformImageState() is called and the sys_ctx is NULL, we are not in the process of downloading a new image.
  *      if the eState is Rejected or Aborted, it pertains to the in-process download (or invalid job) for Secondary Slot.
  *      We could erase the secondary slot, but we do that each new download start, and will not consider new download OK if not complete.
  *
  */
-OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
+OtaErr_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
     OtaErr_t result = OTA_ERR_NONE;
 
     ( void ) C;
 
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() curr eState:", current_OTA_ImageState );
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() new  eSTATE:", eState );
+    PRINT_eSTATE( "-------------------------> otaPal_SetPlatformImageState() curr eState:", current_OTA_ImageState );
+    PRINT_eSTATE( "-------------------------> otaPal_SetPlatformImageState() new  eSTATE:", eState );
     PRINT_SYSTEM_CONTEXT_PTR();
     PRINT_BOOT_SWAP_TYPE( NULL, boot_swap_type() );
 
@@ -1098,7 +1097,7 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
     current_OTA_ImageState = eState;
 
     PRINT_BOOT_SWAP_TYPE( NULL, boot_type );
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() current  eSTATE:", eState );
+    PRINT_eSTATE( "-------------------------> otaPal_SetPlatformImageState() current  eSTATE:", eState );
     PRINT_SYSTEM_CONTEXT_PTR();
     PRINT_BOOT_SWAP_TYPE( NULL, boot_type );
 
@@ -1136,13 +1135,13 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
  * BOOT_SWAP_TYPE_PANIC    0xff Swapping encountered an unrecoverable error
  */
 
-OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
+OtaPalImageState_t otaPal_GetPlatformImageState( OtaFileContext_t * const C )
 {
     OtaPalImageState_t result = OtaPalImageStateUnknown;
 
     ( void ) C;
 
-    PRINT_eSTATE( "<------------------------- prvPAL_GetPlatformImageState() current  eSTATE:", current_OTA_ImageState );
+    PRINT_eSTATE( "<------------------------- otaPal_GetPlatformImageState() current  eSTATE:", current_OTA_ImageState );
     PRINT_SYSTEM_CONTEXT_PTR();
     PRINT_BOOT_SWAP_TYPE( NULL, boot_swap_type() );
 
@@ -1171,7 +1170,7 @@ OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
         result = OtaImageStateUnknown;
     }
 
-    PRINT_PAL_STATE( "<------------------------- prvPAL_GetPlatformImageState() DONE: ", result );
+    PRINT_PAL_STATE( "<------------------------- otaPal_GetPlatformImageState() DONE: ", result );
     return result;
 }
 
