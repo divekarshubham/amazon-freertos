@@ -80,24 +80,25 @@
  *          APP_VERSION_BUILD
  */
 #ifdef CY_TEST_APP_VERSION_IN_TAR
-#include "aws_application_version.h"
+    #include "aws_application_version.h"
 #endif
 
 /* For tarball support */
+
 /**
  * @brief Tarball support file types recognized in components.json file
  *
  * The file type in the tarball
  */
-#define CY_FILE_TYPE_SPE        "SPE"       /**< Secure Programming Environment (TFM) code type               */
-#define CY_FILE_TYPE_NSPE       "NSPE"      /**< Non-Secure Programming Environment (application) code type   */
+#define CY_FILE_TYPE_SPE     "SPE"          /**< Secure Programming Environment (TFM) code type               */
+#define CY_FILE_TYPE_NSPE    "NSPE"         /**< Non-Secure Programming Environment (application) code type   */
 
 /**
  * @brief File Signature Key
  *
  * The OTA signature algorithm we support on this platform.
  */
-const char cOTA_JSON_FileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
+const char OTA_JsonFileSignatureKey[ OTA_FILE_SIG_KEY_STR_MAX_LENGTH ] = "sig-sha256-ecdsa";
 
 /***********************************************************************
  *
@@ -113,52 +114,56 @@ static const char pcOTA_PAL_CERT_END[] = "-----END CERTIFICATE-----";
  *
  **********************************************************************/
 
-#if 1   /* Debugging macros */
+#if 1 /* Debugging macros */
+
 /**
  * @brief Macro to print system context information
  */
-#define PRINT_SYSTEM_CONTEXT_PTR()
+    #define PRINT_SYSTEM_CONTEXT_PTR()
+
 /**
  * @brief Macro to print Boot swap type
  */
-#define PRINT_BOOT_SWAP_TYPE( title, boot_type )
+    #define PRINT_BOOT_SWAP_TYPE( title, boot_type )
+
 /**
  * @brief Macro to print eState value
  */
-#define PRINT_eSTATE( title, eSTATE )
+    #define PRINT_eSTATE( title, eSTATE )
+
 /**
  * @brief Macro to print PAL state
  */
-#define PRINT_PAL_STATE( title, palState )
-#else
-#define PRINT_SYSTEM_CONTEXT_PTR()  LogDebug(("   sys_ctx: %p\n", sys_ctx));
+    #define PRINT_PAL_STATE( title, palState )
+#else  /* if 1 */
+    #define PRINT_SYSTEM_CONTEXT_PTR()    LogDebug( ( "   sys_ctx: %p\n", sys_ctx ) );
 
-#define PRINT_BOOT_SWAP_TYPE( title, boot_type ) \
-    LogDebug( ( "%s:: boot_swap_type:%d (%s)\n", ((title == NULL)?"":title), \
-             boot_type, ((boot_type == 0) ? "Unknown" :             \
-              (boot_type == BOOT_SWAP_TYPE_NONE) ? "None" :         \
-              (boot_type == BOOT_SWAP_TYPE_TEST) ? "Test" :         \
-              (boot_type == BOOT_SWAP_TYPE_PERM) ? "Permanent" :    \
-              (boot_type == BOOT_SWAP_TYPE_REVERT) ? "Revert" :     \
-              (boot_type == BOOT_SWAP_TYPE_FAIL) ? "FAIL" :         \
-              (boot_type == BOOT_SWAP_TYPE_PANIC) ? "PANIC !!" : "Bad State")   ) );
+    #define PRINT_BOOT_SWAP_TYPE( title, boot_type )                                 \
+    LogDebug( ( "%s:: boot_swap_type:%d (%s)\n", ( ( title == NULL ) ? "" : title ), \
+                boot_type, ( ( boot_type == 0 ) ? "Unknown" :                        \
+                             ( boot_type == BOOT_SWAP_TYPE_NONE ) ? "None" :         \
+                             ( boot_type == BOOT_SWAP_TYPE_TEST ) ? "Test" :         \
+                             ( boot_type == BOOT_SWAP_TYPE_PERM ) ? "Permanent" :    \
+                             ( boot_type == BOOT_SWAP_TYPE_REVERT ) ? "Revert" :     \
+                             ( boot_type == BOOT_SWAP_TYPE_FAIL ) ? "FAIL" :         \
+                             ( boot_type == BOOT_SWAP_TYPE_PANIC ) ? "PANIC !!" : "Bad State" ) ) );
 
-#define PRINT_eSTATE( title, state ) \
-    LogDebug( ( "%s::   Sys Image State: 0x%lx (%s) \n", ((title == NULL)?"":title), \
-             state, ((state == eOTA_ImageState_Unknown) ? "Unknown" :  \
-             (state == eOTA_ImageState_Testing) ? "Testing" :          \
-             (state == eOTA_ImageState_Accepted) ? "Accepted" :        \
-             (state == eOTA_ImageState_Rejected) ? "Rejected" :        \
-             (state == eOTA_ImageState_Aborted) ? "Aborted" : "ERROR") ) );
+    #define PRINT_eSTATE( title, state )                                                     \
+    LogDebug( ( "%s::   Sys Image State: 0x%lx (%s) \n", ( ( title == NULL ) ? "" : title ), \
+                state, ( ( state == OtaImageStateUnknown ) ? "Unknown" :                     \
+                         ( state == OtaImageStateTesting ) ? "Testing" :                     \
+                         ( state == OtaImageStateAccepted ) ? "Accepted" :                   \
+                         ( state == OtaImageStateRejected ) ? "Rejected" :                   \
+                         ( state == OtaImageStateAborted ) ? "Aborted" : "ERROR" ) ) );
 
-#define PRINT_PAL_STATE( title, palState ) \
-    LogDebug( ( "%s::   PAL Image State: 0x%lx (%s) \n", ((title == NULL)?"":title), \
-            palState, ((palState == eOTA_PAL_ImageState_Unknown) ? "Unknown" :  \
-             (palState == eOTA_PAL_ImageState_PendingCommit) ? "Pending" :          \
-             (palState == eOTA_PAL_ImageState_Valid) ? "Valid" :        \
-             (palState == eOTA_PAL_ImageState_Invalid) ? "Invalid" : "ERROR") ) );
+    #define PRINT_PAL_STATE( title, palState )                                               \
+    LogDebug( ( "%s::   PAL Image State: 0x%lx (%s) \n", ( ( title == NULL ) ? "" : title ), \
+                palState, ( ( palState == OtaPalImageStateUnknown ) ? "Unknown" :            \
+                            ( palState == OtaPalImageStatePendingCommit ) ? "Pending" :      \
+                            ( palState == OtaPalImageStateValid ) ? "Valid" :                \
+                            ( palState == OtaPalImageStateInvalid ) ? "Invalid" : "ERROR" ) ) );
 
-#endif  /* Debugging Macros */
+#endif /* Debugging Macros */
 
 /***********************************************************************
  *
@@ -171,20 +176,21 @@ static const char pcOTA_PAL_CERT_END[] = "-----END CERTIFICATE-----";
  * Variables
  *
  **********************************************************************/
+
 /**
  * @brief Ptr to system context
  *
  * Keep track of system context between calls from the OTA Agent
  *
  */
-const OtaFileContext_t *sys_ctx;
+const OtaFileContext_t * sys_ctx;
 
 /**
  * @brief Current OTA Image State
  *
  * Keep track of the state OTA Agent wants us to be in.
  */
-static OTA_ImageState_t current_OTA_ImageState = eOTA_ImageState_Unknown;
+static OTA_ImageState_t current_OTA_ImageState = OtaImageStateUnknown;
 
 /**
  * @brief Last time we ran a signature check
@@ -192,6 +198,7 @@ static OTA_ImageState_t current_OTA_ImageState = eOTA_ImageState_Unknown;
  * Keep track of the last signature check value for prvPAL_SetPlatformImageState
  */
 static OtaErr_t last_signature_check;
+
 /***********************************************************************
  *
  * UNTAR variables
@@ -201,7 +208,7 @@ static OtaErr_t last_signature_check;
 /**
  * @brief Context structure for parsing the tar file
  */
-cy_untar_context_t  ota_untar_context;
+cy_untar_context_t ota_untar_context;
 
 /**
  * @brief Flag to denote this is a tar file
@@ -213,17 +220,17 @@ int ota_is_tar_archive;
 /**
  * @brief Signature Verification Context
  */
-void        *pvSigVerifyContext = NULL;
+void * pvSigVerifyContext = NULL;
 
 /**
  * @brief Signature Certificate size
  */
-uint32_t    ulSignerCertSize;
+uint32_t ulSignerCertSize;
 
 /**
  * @brief pointer to Signer Certificate
  */
-u8          *pucSignerCert = NULL;
+u8 * pucSignerCert = NULL;
 
 /***********************************************************************
  *
@@ -248,36 +255,41 @@ u8          *pucSignerCert = NULL;
 static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertName,
                                                   uint32_t * const ulSignerCertSize )
 {
-    uint8_t *pucCertEnd;
-    uint8_t *pucDecodedCertificate;
+    uint8_t * pucCertEnd;
+    uint8_t * pucDecodedCertificate;
     size_t ulDecodedCertificateSize;
 
-    *ulSignerCertSize = sizeof(signingcredentialSIGNING_CERTIFICATE_PEM);
+    *ulSignerCertSize = sizeof( signingcredentialSIGNING_CERTIFICATE_PEM );
     /* Skip the "BEGIN CERTIFICATE" */
-    uint8_t* pucCertBegin = (uint8_t *)strstr (signingcredentialSIGNING_CERTIFICATE_PEM, pcOTA_PAL_CERT_BEGIN);
-    if (pucCertBegin == NULL)
+    uint8_t * pucCertBegin = ( uint8_t * ) strstr( signingcredentialSIGNING_CERTIFICATE_PEM, pcOTA_PAL_CERT_BEGIN );
+
+    if( pucCertBegin == NULL )
     {
         LogError( ( "No Begin found for Certificate" ) );
         return NULL;
     }
-    pucCertBegin += sizeof(pcOTA_PAL_CERT_BEGIN);
+
+    pucCertBegin += sizeof( pcOTA_PAL_CERT_BEGIN );
 
     /* Find the "END CERTIFICATE" */
-    pucCertEnd =  (uint8_t *)strstr((char *)pucCertBegin, pcOTA_PAL_CERT_END);
-    if (pucCertEnd == NULL)
+    pucCertEnd = ( uint8_t * ) strstr( ( char * ) pucCertBegin, pcOTA_PAL_CERT_END );
+
+    if( pucCertEnd == NULL )
     {
-        LogError( ( "No END found for Certificate") );
+        LogError( ( "No END found for Certificate" ) );
         return NULL;
     }
 
-    mbedtls_base64_decode(NULL, 0, &ulDecodedCertificateSize, pucCertBegin, pucCertEnd - pucCertBegin);
-    pucDecodedCertificate = (uint8_t *) pvPortMalloc(ulDecodedCertificateSize);
-    if (pucDecodedCertificate == NULL)
+    mbedtls_base64_decode( NULL, 0, &ulDecodedCertificateSize, pucCertBegin, pucCertEnd - pucCertBegin );
+    pucDecodedCertificate = ( uint8_t * ) pvPortMalloc( ulDecodedCertificateSize );
+
+    if( pucDecodedCertificate == NULL )
     {
         LogError( ( "Failed to decode the Certificate" ) );
         return NULL;
     }
-    mbedtls_base64_decode(pucDecodedCertificate, ulDecodedCertificateSize, &ulDecodedCertificateSize, pucCertBegin, pucCertEnd - pucCertBegin);
+
+    mbedtls_base64_decode( pucDecodedCertificate, ulDecodedCertificateSize, &ulDecodedCertificateSize, pucCertBegin, pucCertEnd - pucCertBegin );
 
     return pucDecodedCertificate;
 }
@@ -292,20 +304,21 @@ static uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertN
  */
 static int eraseSlotTwo( void )
 {
-    const struct flash_area *fap;
+    const struct flash_area * fap;
 
-    if (flash_area_open(FLASH_AREA_IMAGE_SECONDARY(0), &fap) != 0)
+    if( flash_area_open( FLASH_AREA_IMAGE_SECONDARY( 0 ), &fap ) != 0 )
     {
         LogError( ( "flash_area_open(FLASH_AREA_IMAGE_SECONDARY(0)) failed" ) );
         return -1;
     }
-    if (flash_area_erase(fap, 0, fap->fa_size) != 0)
+
+    if( flash_area_erase( fap, 0, fap->fa_size ) != 0 )
     {
         LogError( ( "flash_area_erase(fap, 0) failed" ) );
         return -1;
     }
 
-    flash_area_close(fap);
+    flash_area_close( fap );
 
     return 0;
 }
@@ -323,51 +336,52 @@ static int eraseSlotTwo( void )
  * return   CY_RSLT_SUCCESS
  *          CY_RSLT_TYPE_ERROR
  */
-cy_untar_result_t ota_untar_write_callback(cy_untar_context_ptr ctxt,
-                                   uint16_t file_index,
-                                   uint8_t *buffer,
-                                   uint32_t file_offset,
-                                   uint32_t chunk_size,
-                                   void *cb_arg)
+cy_untar_result_t ota_untar_write_callback( cy_untar_context_ptr ctxt,
+                                            uint16_t file_index,
+                                            uint8_t * buffer,
+                                            uint32_t file_offset,
+                                            uint32_t chunk_size,
+                                            void * cb_arg )
 {
     int type = 0;
-    const struct flash_area *fap;
-    OtaFileContext_t * const C = (OtaFileContext_t *)cb_arg;
+    const struct flash_area * fap;
+    OtaFileContext_t * const C = ( OtaFileContext_t * ) cb_arg;
 
-    if ( (ctxt == NULL) || (buffer == NULL) || (C == NULL) )
+    if( ( ctxt == NULL ) || ( buffer == NULL ) || ( C == NULL ) )
     {
         return CY_UNTAR_ERROR;
     }
 
-    //LogDebug( ("%d:%s FILE %d name %s : %s\n", __LINE__, __func__, file_index, ctxt->files[file_index].name, ctxt->files[file_index].type) );
-    if ( strncmp(ctxt->files[file_index].type, CY_FILE_TYPE_SPE, strlen(CY_FILE_TYPE_SPE)) == 0)
+    /*LogDebug( ("%d:%s FILE %d name %s : %s\n", __LINE__, __func__, file_index, ctxt->files[file_index].name, ctxt->files[file_index].type) ); */
+    if( strncmp( ctxt->files[ file_index ].type, CY_FILE_TYPE_SPE, strlen( CY_FILE_TYPE_SPE ) ) == 0 )
     {
-
         type = 1;
     }
-    else if ( strncmp(ctxt->files[file_index].type, CY_FILE_TYPE_NSPE, strlen(CY_FILE_TYPE_NSPE)) == 0)
+    else if( strncmp( ctxt->files[ file_index ].type, CY_FILE_TYPE_NSPE, strlen( CY_FILE_TYPE_NSPE ) ) == 0 )
     {
         type = 0;
     }
     else
     {
         /* unknown file type */
-        LogError( ( "BAD FILE TYPE : >%s<", ctxt->files[file_index].type ) );
+        LogError( ( "BAD FILE TYPE : >%s<", ctxt->files[ file_index ].type ) );
         return CY_UNTAR_ERROR;
     }
 
-    if (flash_area_open(FLASH_AREA_IMAGE_SECONDARY(type), &fap) != 0)
+    if( flash_area_open( FLASH_AREA_IMAGE_SECONDARY( type ), &fap ) != 0 )
     {
         LogError( ( "flash_area_open(%d) failed", type ) );
         return CY_UNTAR_ERROR;
     }
-    if (flash_area_write(fap, file_offset, buffer, chunk_size) != 0)
+
+    if( flash_area_write( fap, file_offset, buffer, chunk_size ) != 0 )
     {
         LogError( ( "flash_area_write() failed" ) );
-        flash_area_close(fap);
+        flash_area_close( fap );
         return CY_UNTAR_ERROR;
     }
-    flash_area_close(fap);
+
+    flash_area_close( fap );
 
     return CY_UNTAR_SUCCESS;
 }
@@ -379,13 +393,15 @@ cy_untar_result_t ota_untar_write_callback(cy_untar_context_ptr ctxt,
  * @param C[in]         pointer to system OTA context
  *
  */
-cy_rslt_t ota_untar_init_context( cy_untar_context_t* ctxt, OtaFileContext_t * const C )
+cy_rslt_t ota_untar_init_context( cy_untar_context_t * ctxt,
+                                  OtaFileContext_t * const C )
 {
-    if (cy_untar_init( ctxt, ota_untar_write_callback, (void *)C ) == CY_RSLT_SUCCESS)
+    if( cy_untar_init( ctxt, ota_untar_write_callback, ( void * ) C ) == CY_RSLT_SUCCESS )
     {
-        ota_is_tar_archive  = 1;
+        ota_is_tar_archive = 1;
         return CY_RSLT_SUCCESS;
     }
+
     return CY_RSLT_TYPE_ERROR;
 }
 
@@ -397,7 +413,8 @@ static void prvPAL_FileSignatureCheckDeinit( void )
 {
     pvSigVerifyContext = NULL;
     ulSignerCertSize = 0;
-    if (pucSignerCert  != NULL)
+
+    if( pucSignerCert != NULL )
     {
         vPortFree( pucSignerCert );
         pucSignerCert = NULL;
@@ -421,9 +438,9 @@ static void prvPAL_FileSignatureCheckDeinit( void )
  */
 static OtaErr_t prvPAL_FileSignatureCheckInit( OtaFileContext_t * const C )
 {
-    if ( C == NULL )
+    if( C == NULL )
     {
-        LogError( ("Bad Args C:%p", C) );
+        LogError( ( "Bad Args C:%p", C ) );
         return OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
 
@@ -439,11 +456,13 @@ static OtaErr_t prvPAL_FileSignatureCheckInit( OtaFileContext_t * const C )
     }
 
     pucSignerCert = prvPAL_ReadAndAssumeCertificate( ( const u8 * const ) C->pCertFilepath, &ulSignerCertSize );
+
     if( pucSignerCert == NULL )
     {
         LogError( ( "prvPAL_ReadAndAssumeCertificate() failed" ) );
         return OTA_ERR_BAD_SIGNER_CERT;
     }
+
     return OTA_ERR_NONE;
 }
 
@@ -463,20 +482,25 @@ static OtaErr_t prvPAL_FileSignatureCheckInit( OtaFileContext_t * const C )
  * OTA_ERR_SIGNATURE_CHECK_FAILED if the signature verification fails.
  * OTA_ERR_BAD_SIGNER_CERT if the if the signature verification certificate cannot be read.
  */
-static OtaErr_t prvPAL_FileSignatureCheckStep( OtaFileContext_t * const C, uint8_t * buffer, uint32_t size )
+static OtaErr_t prvPAL_FileSignatureCheckStep( OtaFileContext_t * const C,
+                                               uint8_t * buffer,
+                                               uint32_t size )
 {
-    if ( (C == NULL) || (C != sys_ctx ) || (pvSigVerifyContext == NULL) )
+    if( ( C == NULL ) || ( C != sys_ctx ) || ( pvSigVerifyContext == NULL ) )
     {
         LogError( ( "Bad Args C:%p", C ) );
         /* Free the signer certificate that we now own after prvReadAndAssumeCertificate(). */
         prvPAL_FileSignatureCheckDeinit();
-        if (pvSigVerifyContext == NULL)
+
+        if( pvSigVerifyContext == NULL )
         {
             return OTA_ERR_BAD_SIGNER_CERT;
         }
+
         return OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
-    CRYPTO_SignatureVerificationUpdate( pvSigVerifyContext, buffer, size);
+
+    CRYPTO_SignatureVerificationUpdate( pvSigVerifyContext, buffer, size );
     return OTA_ERR_NONE;
 }
 
@@ -496,9 +520,9 @@ static OtaErr_t prvPAL_FileSignatureCheckStep( OtaFileContext_t * const C, uint8
  */
 static OtaErr_t prvPAL_FileSignatureCheckFinal( OtaFileContext_t * const C )
 {
-    OtaErr_t   result = OTA_ERR_NONE;
+    OtaErr_t result = OTA_ERR_NONE;
 
-    if ( (C == NULL) || (C != sys_ctx ) || (pvSigVerifyContext == NULL) || (pucSignerCert == NULL) || (ulSignerCertSize == 0) )
+    if( ( C == NULL ) || ( C != sys_ctx ) || ( pvSigVerifyContext == NULL ) || ( pucSignerCert == NULL ) || ( ulSignerCertSize == 0 ) )
     {
         /* Free the signer certificate that we now own after prvReadAndAssumeCertificate(). */
         prvPAL_FileSignatureCheckDeinit();
@@ -512,6 +536,7 @@ static OtaErr_t prvPAL_FileSignatureCheckFinal( OtaFileContext_t * const C )
         LogError( ( "CRYPTO_SignatureVerificationFinal() failed" ) );
         result = OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
+
     last_signature_check = result;
 
     /* Free the signer certificate that we now own after prvReadAndAssumeCertificate(). */
@@ -541,24 +566,25 @@ static OtaErr_t prvPAL_FileSignatureCheckFinal( OtaFileContext_t * const C )
  */
 OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
 {
-    OtaErr_t   result = OTA_ERR_NONE;
-    const struct flash_area *fap;
+    OtaErr_t result = OTA_ERR_NONE;
+    const struct flash_area * fap;
 
-    if ( (C != NULL) && (C->pFile == (uint32_t)NULL) )
+    if( ( C != NULL ) && ( C->pFile == ( uint32_t ) NULL ) )
     {
         return OTA_ERR_NONE;
     }
 
-    if ( (C == NULL) || (C != sys_ctx ) )
+    if( ( C == NULL ) || ( C != sys_ctx ) )
     {
         LogError( ( "BAD ARGS" ) );
         return OTA_ERR_ABORT_FAILED;
     }
 
-    fap = (const struct flash_area *)C->pFile;
-    if (fap != NULL)
+    fap = ( const struct flash_area * ) C->pFile;
+
+    if( fap != NULL )
     {
-        flash_area_close(fap);  /* May have been closed already */
+        flash_area_close( fap ); /* May have been closed already */
     }
 
     /* reset our globals */
@@ -595,10 +621,10 @@ OtaErr_t prvPAL_Abort( OtaFileContext_t * const C )
  */
 OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
 {
-    OtaErr_t   result = OTA_ERR_NONE;
-    const struct flash_area *fap;
+    OtaErr_t result = OTA_ERR_NONE;
+    const struct flash_area * fap;
 
-    if (C == NULL)
+    if( C == NULL )
     {
         LogError( ( "BAD ARGS" ) );
         return OTA_ERR_RX_FILE_CREATE_FAILED;
@@ -608,14 +634,14 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
     eraseSlotTwo();
 
     /* Must set something into pFile and we use for MQTT downloads */
-    if (flash_area_open(FLASH_AREA_IMAGE_SECONDARY(0), &fap) != 0)
+    if( flash_area_open( FLASH_AREA_IMAGE_SECONDARY( 0 ), &fap ) != 0 )
     {
         LogError( ( "flash_area_open() failed" ) );
         return OTA_ERR_RX_FILE_CREATE_FAILED;
     }
 
     /* NOTE: pFile MUST be non-NULL of the OTA Agent will error out */
-    C->pFile = (int32_t)fap;
+    C->pFile = ( int32_t ) fap;
     sys_ctx = C;
 
     /* initialize these for checking later */
@@ -653,9 +679,9 @@ OtaErr_t prvPAL_CreateFileForRx( OtaFileContext_t * const C )
  */
 OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 {
-    OtaErr_t               result = OTA_ERR_NONE;
+    OtaErr_t result = OTA_ERR_NONE;
 
-    if ( (C == NULL) || (C != sys_ctx ) || (C->pFile == 0))
+    if( ( C == NULL ) || ( C != sys_ctx ) || ( C->pFile == 0 ) )
     {
         LogError( ( "BAD ARGS" ) );
         result = OTA_ERR_FILE_CLOSE;
@@ -663,7 +689,7 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
     }
 
     /* we got the data, try to verify it */
-    if (C->pSignature == NULL)
+    if( C->pSignature == NULL )
     {
         LogError( ( "No pSignature from AWS" ) );
         result = OTA_ERR_SIGNATURE_CHECK_FAILED;
@@ -674,16 +700,16 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
      * in sequential order - we need start of TAR (components.json) first, and we
      * do not store all of the blocks. Signature must be checked in sequential order.
      */
-    if (ota_is_tar_archive == 1)
+    if( ota_is_tar_archive == 1 )
     {
         /* Do the final check for signature */
-        if (prvPAL_FileSignatureCheckFinal(C) == OTA_ERR_NONE)
+        if( prvPAL_FileSignatureCheckFinal( C ) == OTA_ERR_NONE )
         {
             /* Mark this new OTA image as pending, it will be the permanent
-            * bootable image going forward.
-            */
+             * bootable image going forward.
+             */
             LogInfo( ( "TAR prvPAL_FileSignatureCheckFinal() GOOD" ) );
-            boot_set_pending(0);
+            boot_set_pending( 0 );
         }
         else
         {
@@ -698,11 +724,12 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
          * If MQTT, the file blocks may come in non-sequential order.
          * We need to run signature check across entire downloaded file at once.
          */
-        const struct flash_area *fap;
+        const struct flash_area * fap;
 
-        //LogDebug( ( "%s() BINARY file, check whole file for signature\n", __func__) );
-        fap = (const struct flash_area *)C->pFile;
-        if (fap == 0)
+        /*LogDebug( ( "%s() BINARY file, check whole file for signature\n", __func__) ); */
+        fap = ( const struct flash_area * ) C->pFile;
+
+        if( fap == 0 )
         {
             LogError( ( "ERROR: fap == NULL" ) );
             result = OTA_ERR_SIGNATURE_CHECK_FAILED;
@@ -710,35 +737,41 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
         }
 
         result = prvPAL_FileSignatureCheckInit( C );
-        if (result == OTA_ERR_NONE)
+
+        if( result == OTA_ERR_NONE )
         {
             uint32_t addr;
             addr = 0;
-            while (addr < C->fileSize)
+
+            while( addr < C->fileSize )
             {
                 uint32_t toread = C->fileSize - addr;
-                /* Re-use coalesce buffer as we have completed download (it is not used for non-TAR OTA) */
-                if (toread > sizeof(ota_untar_context.coalesce_buffer) )
-                    toread = sizeof(ota_untar_context.coalesce_buffer);
 
-                if (flash_area_read(fap, addr, ota_untar_context.coalesce_buffer, toread) < 0)
+                /* Re-use coalesce buffer as we have completed download (it is not used for non-TAR OTA) */
+                if( toread > sizeof( ota_untar_context.coalesce_buffer ) )
+                {
+                    toread = sizeof( ota_untar_context.coalesce_buffer );
+                }
+
+                if( flash_area_read( fap, addr, ota_untar_context.coalesce_buffer, toread ) < 0 )
                 {
                     LogError( ( "flash_area_read() failed for signature check" ) );
                     result = OTA_ERR_SIGNATURE_CHECK_FAILED;
                     goto _exit_CloseFile;
                 }
 
-                CRYPTO_SignatureVerificationUpdate( pvSigVerifyContext, ota_untar_context.coalesce_buffer, toread);
+                CRYPTO_SignatureVerificationUpdate( pvSigVerifyContext, ota_untar_context.coalesce_buffer, toread );
 
                 addr += toread;
             }
-            if (prvPAL_FileSignatureCheckFinal(C) == OTA_ERR_NONE)
+
+            if( prvPAL_FileSignatureCheckFinal( C ) == OTA_ERR_NONE )
             {
                 /* Mark this new OTA image as pending, it will be the permanent
-                * bootable image going forward.
-                */
-                LogInfo( ("BIN prvPAL_FileSignatureCheckFinal() GOOD" ) );
-                boot_set_pending(0);
+                 * bootable image going forward.
+                 */
+                LogInfo( ( "BIN prvPAL_FileSignatureCheckFinal() GOOD" ) );
+                boot_set_pending( 0 );
             }
             else
             {
@@ -751,20 +784,21 @@ OtaErr_t prvPAL_CloseFile( OtaFileContext_t * const C )
 
 _exit_CloseFile:
 
-    if ( C != NULL && C->pFile != 0 )
+    if( ( C != NULL ) && ( C->pFile != 0 ) )
     {
-        const struct flash_area *fap;
-        fap = (const struct flash_area *)C->pFile;
-        flash_area_close(fap);
+        const struct flash_area * fap;
+        fap = ( const struct flash_area * ) C->pFile;
+        flash_area_close( fap );
     }
 
     /* Free the signer certificate that we now own after prvReadAndAssumeCertificate(). */
     prvPAL_FileSignatureCheckDeinit();
 
-    if (result != OTA_ERR_NONE)
+    if( result != OTA_ERR_NONE )
     {
-        current_OTA_ImageState = eOTA_ImageState_Unknown;
+        current_OTA_ImageState = OtaImageStateUnknown;
     }
+
     return result;
 }
 
@@ -791,21 +825,19 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
                            uint8_t * const pcData,
                            uint32_t ulBlockSize )
 {
-
-    if ( (C == NULL) || (C != sys_ctx ) )
+    if( ( C == NULL ) || ( C != sys_ctx ) )
     {
         LogError( ( "BAD ARGS" ) );
         return -1;
     }
 
     /* we need to check some things when we receive the first block */
-    if (ulOffset == 0UL)
+    if( ulOffset == 0UL )
     {
-
         /*
          * initialize file signature checking
          */
-        if (prvPAL_FileSignatureCheckInit(C) != OTA_ERR_NONE)
+        if( prvPAL_FileSignatureCheckInit( C ) != OTA_ERR_NONE )
         {
             LogError( ( "prvPAL_FileSignatureCheckInit() FAILED" ) );
             return -1;
@@ -814,9 +846,9 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
         /*
          * Check for incoming tarball (as opposed to a single file OTA)
          */
-        if (cy_is_tar_header( pcData, ulBlockSize) == CY_UNTAR_SUCCESS)
+        if( cy_is_tar_header( pcData, ulBlockSize ) == CY_UNTAR_SUCCESS )
         {
-            if (ota_untar_init_context(&ota_untar_context, C) != CY_RSLT_SUCCESS)
+            if( ota_untar_init_context( &ota_untar_context, C ) != CY_RSLT_SUCCESS )
             {
                 LogError( ( "ota_untar_init_context() FAILED" ) );
                 return -1;
@@ -825,85 +857,92 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
     }
 
     /* treat a tar file differently from a "normal" OTA */
-    if (ota_is_tar_archive != 0)
+    if( ota_is_tar_archive != 0 )
     {
         uint32_t consumed = 0;
 
         /* check the signature incrementally over every block received */
-        if (prvPAL_FileSignatureCheckStep( C, pcData, ulBlockSize) != OTA_ERR_NONE)
+        if( prvPAL_FileSignatureCheckStep( C, pcData, ulBlockSize ) != OTA_ERR_NONE )
         {
-            LogError( ( "FileSignatureCheckStep() offset:%ld FAILED", ulOffset) );
+            LogError( ( "FileSignatureCheckStep() offset:%ld FAILED", ulOffset ) );
             return -1;
         }
 
         while( consumed < ulBlockSize )
         {
             cy_untar_result_t result;
-            result = cy_untar_parse(&ota_untar_context, (ulOffset + consumed), &pcData[consumed], (ulBlockSize- consumed), &consumed);
-            if ( (result == CY_UNTAR_ERROR) || (result == CY_UNTAR_INVALID))
+            result = cy_untar_parse( &ota_untar_context, ( ulOffset + consumed ), &pcData[ consumed ], ( ulBlockSize - consumed ), &consumed );
+
+            if( ( result == CY_UNTAR_ERROR ) || ( result == CY_UNTAR_INVALID ) )
             {
-                LogError( ( "cy_untar_parse() FAIL consumed:%ld sz:%ld result:%ld", consumed, ulBlockSize, result) );
+                LogError( ( "cy_untar_parse() FAIL consumed:%ld sz:%ld result:%ld", consumed, ulBlockSize, result ) );
                 return -1;
             }
+
             /* Yield for a bit */
-            vTaskDelay(1);
+            vTaskDelay( 1 );
         }
 
         /* with the tarball we get a version - check if it is > current so we can bail early */
-#ifdef CY_TEST_APP_VERSION_IN_TAR
-        if (ota_untar_context.version[0] != 0)
-        {
-            /* example version string "<major>.<minor>.<build>" */
-            uint16_t major = 0;
-            uint16_t minor = 0;
-            uint16_t build = 0;
-            char *dot;
-            major = atoi(ota_untar_context.version);
-            dot = strstr(ota_untar_context.version, ".");
-            if (dot != NULL)
+        #ifdef CY_TEST_APP_VERSION_IN_TAR
+            if( ota_untar_context.version[ 0 ] != 0 )
             {
-                dot++;
-                minor = atoi(dot);
-                dot = strstr(dot, ".");
-                if (dot != NULL)
+                /* example version string "<major>.<minor>.<build>" */
+                uint16_t major = 0;
+                uint16_t minor = 0;
+                uint16_t build = 0;
+                char * dot;
+                major = atoi( ota_untar_context.version );
+                dot = strstr( ota_untar_context.version, "." );
+
+                if( dot != NULL )
                 {
                     dot++;
-                    build = atoi(dot);
+                    minor = atoi( dot );
+                    dot = strstr( dot, "." );
 
-                    if ( (major < APP_VERSION_MAJOR) ||
-                          ( (major == APP_VERSION_MAJOR) &&
-                            (minor < APP_VERSION_MINOR)) ||
-                          ( (major == APP_VERSION_MAJOR) &&
-                            (minor == APP_VERSION_MINOR) &&
-                            (build <= APP_VERSION_BUILD)))
-                     {
-                         LogDebug( ( "OTA image version %d.%d.%d <= current %d.%d.%d-- bail!",
-                                     major, minor, build,
-                                     APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_BUILD) );
+                    if( dot != NULL )
+                    {
+                        dot++;
+                        build = atoi( dot );
 
-                         return -1;
-                     }
+                        if( ( major < APP_VERSION_MAJOR ) ||
+                            ( ( major == APP_VERSION_MAJOR ) &&
+                              ( minor < APP_VERSION_MINOR ) ) ||
+                            ( ( major == APP_VERSION_MAJOR ) &&
+                              ( minor == APP_VERSION_MINOR ) &&
+                              ( build <= APP_VERSION_BUILD ) ) )
+                        {
+                            LogDebug( ( "OTA image version %d.%d.%d <= current %d.%d.%d-- bail!",
+                                        major, minor, build,
+                                        APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_BUILD ) );
+
+                            return -1;
+                        }
+                    }
                 }
             }
-        }
-#endif  /* CY_TEST_APP_VERSION_IN_TAR */
+        #endif /* CY_TEST_APP_VERSION_IN_TAR */
     }
     else
     {
         /* non-tarball OTA here */
-        const struct flash_area *fap;
-        fap = (const struct flash_area *)C->pFile;
-        if (fap == NULL)
+        const struct flash_area * fap;
+        fap = ( const struct flash_area * ) C->pFile;
+
+        if( fap == NULL )
         {
             LogError( ( "flash_area_pointer is NULL" ) );
             return -1;
         }
-        if (flash_area_write(fap, ulOffset, pcData, ulBlockSize) != 0)
+
+        if( flash_area_write( fap, ulOffset, pcData, ulBlockSize ) != 0 )
         {
             LogError( ( "flash_area_write() FAILED" ) );
             return -1;
         }
     }
+
     return ulBlockSize;
 }
 
@@ -921,7 +960,7 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
  */
 OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 {
-    LogInfo( ("entered %s()", __func__) );
+    LogInfo( ( "entered %s()", __func__ ) );
     prvPAL_ResetDevice( C );
     return OTA_ERR_NONE;
 }
@@ -942,9 +981,9 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
     ( void ) C;
 
     /* we want to wait a bit when in DEBUG builds so the logging mechanism can finish before resetting */
-    vTaskDelay(pdMS_TO_TICKS( 1000UL ));
+    vTaskDelay( pdMS_TO_TICKS( 1000UL ) );
     LogInfo( ( "Resetting now" ) );
-    vTaskDelay(pdMS_TO_TICKS( 1000UL ));
+    vTaskDelay( pdMS_TO_TICKS( 1000UL ) );
     NVIC_SystemReset();
     return OTA_ERR_NONE;
 }
@@ -964,9 +1003,9 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
  *
  *   OTA_ERR_NONE on success.
  *   OTA_ERR_BAD_IMAGE_STATE: if you specify an invalid OTA_ImageState_t. No sub error code.
- *   OTA_ERR_ABORT_FAILED: failed to roll back the update image as requested by eOTA_ImageState_Aborted.
- *   OTA_ERR_REJECT_FAILED: failed to roll back the update image as requested by eOTA_ImageState_Rejected.
- *   OTA_ERR_COMMIT_FAILED: failed to make the update image permanent as requested by eOTA_ImageState_Accepted.
+ *   OTA_ERR_ABORT_FAILED: failed to roll back the update image as requested by OtaImageStateAborted.
+ *   OTA_ERR_REJECT_FAILED: failed to roll back the update image as requested by OtaImageStateRejected.
+ *   OTA_ERR_COMMIT_FAILED: failed to make the update image permanent as requested by OtaImageStateAccepted.
  *
  *
  *   IMPORTANT NOTES:
@@ -982,55 +1021,62 @@ OtaErr_t prvPAL_ResetDevice( OtaFileContext_t * const C )
 OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
-    OtaErr_t   result = OTA_ERR_NONE;
+    OtaErr_t result = OTA_ERR_NONE;
 
     ( void ) C;
 
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() curr eState:", current_OTA_ImageState);
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() new  eSTATE:", eState);
+    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() curr eState:", current_OTA_ImageState );
+    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() new  eSTATE:", eState );
     PRINT_SYSTEM_CONTEXT_PTR();
-    PRINT_BOOT_SWAP_TYPE(NULL, boot_swap_type());
+    PRINT_BOOT_SWAP_TYPE( NULL, boot_swap_type() );
 
-    if( eState == eOTA_ImageState_Unknown || eState > eOTA_LastImageState )
+    if( ( eState == OtaImageStateUnknown ) || ( eState > OtaLastImageState ) )
     {
         return OTA_ERR_BAD_IMAGE_STATE;
     }
 
-    if (sys_ctx == NULL)
+    if( sys_ctx == NULL )
     {
         /* We are not currently loading an OTA image. This state change pertains to Slot 0 image */
-        switch (eState)
+        switch( eState )
         {
-        case eOTA_ImageState_Accepted:
-            /* Mark Slot 0 image as valid */
-            // We need to know if the last check was good...
-            if (last_signature_check == OTA_ERR_NONE)
-            {
-                boot_set_confirmed();
-            }
-            else
-            {
-                result = OTA_ERR_COMMIT_FAILED;
-            }
-            break;
-        case eOTA_ImageState_Rejected:
-            /* we haven't closed the file, and the OTA Agent has rejected the download */
-            result = OTA_ERR_NONE;
-            break;
-        case eOTA_ImageState_Aborted:
-            /* We are not actively downloading, this pertains to an invalid download job
-             * or an aborted job. We erase secondary slot when we start a new download,
-             * and do not consider secondary slot ready unless download completes and
-             * signature checked. nothing to do here, but set our state to Accepted so
-             * we store it for GetImageState().
-             */
-            eState = eOTA_ImageState_Accepted;
-            break;
-        case eOTA_ImageState_Testing:
-            break;
-        default:
-            result = OTA_ERR_BAD_IMAGE_STATE;
-            break;
+            case OtaImageStateAccepted:
+
+                /* Mark Slot 0 image as valid */
+                /* We need to know if the last check was good... */
+                if( last_signature_check == OTA_ERR_NONE )
+                {
+                    boot_set_confirmed();
+                }
+                else
+                {
+                    result = OTA_ERR_COMMIT_FAILED;
+                }
+
+                break;
+
+            case OtaImageStateRejected:
+                /* we haven't closed the file, and the OTA Agent has rejected the download */
+                result = OTA_ERR_NONE;
+                break;
+
+            case OtaImageStateAborted:
+
+                /* We are not actively downloading, this pertains to an invalid download job
+                 * or an aborted job. We erase secondary slot when we start a new download,
+                 * and do not consider secondary slot ready unless download completes and
+                 * signature checked. nothing to do here, but set our state to Accepted so
+                 * we store it for GetImageState().
+                 */
+                eState = OtaImageStateAccepted;
+                break;
+
+            case OtaImageStateTesting:
+                break;
+
+            default:
+                result = OTA_ERR_BAD_IMAGE_STATE;
+                break;
         }
     }
     else
@@ -1039,9 +1085,9 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
          * Abort or Reject refers to the new download, not the primary slot.
          * Nothing to do here.
          */
-        if (eState == eOTA_ImageState_Accepted)
+        if( eState == OtaImageStateAccepted )
         {
-            if (sys_ctx->pFile != (uint32_t)NULL)
+            if( sys_ctx->pFile != ( uint32_t ) NULL )
             {
                 result = OTA_ERR_COMMIT_FAILED;
             }
@@ -1051,10 +1097,10 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
     /* keep track of the state OTA Agent sent. */
     current_OTA_ImageState = eState;
 
-    PRINT_BOOT_SWAP_TYPE(NULL, boot_type);
-    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() current  eSTATE:", eState);
+    PRINT_BOOT_SWAP_TYPE( NULL, boot_type );
+    PRINT_eSTATE( "-------------------------> prvPAL_SetPlatformImageState() current  eSTATE:", eState );
     PRINT_SYSTEM_CONTEXT_PTR();
-    PRINT_BOOT_SWAP_TYPE(NULL, boot_type);
+    PRINT_BOOT_SWAP_TYPE( NULL, boot_type );
 
     return result;
 }
@@ -1074,12 +1120,12 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
  * If the update image state is not in "pending commit," the self test timer is
  * not started.
  *
- * @return An OTA_PAL_ImageState_t. One of the following:
- *   eOTA_PAL_ImageState_PendingCommit (the new firmware image is in the self test phase)
- *   eOTA_PAL_ImageState_Valid         (the new firmware image is already committed)
- *   eOTA_PAL_ImageState_Invalid       (the new firmware image is invalid or non-existent)
+ * @return An OtaPalImageState_t. One of the following:
+ *   OtaPalImageStatePendingCommit (the new firmware image is in the self test phase)
+ *   OtaPalImageStateValid         (the new firmware image is already committed)
+ *   OtaPalImageStateInvalid       (the new firmware image is invalid or non-existent)
  *
- *   NOTE: eOTA_PAL_ImageState_Unknown should NEVER be returned and indicates an implementation error.
+ *   NOTE: OtaPalImageStateUnknown should NEVER be returned and indicates an implementation error.
  *
  * We are testing the New application.
  * BOOT_SWAP_TYPE_NONE     1
@@ -1092,40 +1138,40 @@ OtaErr_t prvPAL_SetPlatformImageState( OtaFileContext_t * const C,
 
 OtaPalImageState_t prvPAL_GetPlatformImageState( OtaFileContext_t * const C )
 {
-    OTA_PAL_ImageState_t result = eOTA_PAL_ImageState_Unknown;
+    OtaPalImageState_t result = OtaPalImageStateUnknown;
 
     ( void ) C;
 
-    PRINT_eSTATE(  "<------------------------- prvPAL_GetPlatformImageState() current  eSTATE:", current_OTA_ImageState);
+    PRINT_eSTATE( "<------------------------- prvPAL_GetPlatformImageState() current  eSTATE:", current_OTA_ImageState );
     PRINT_SYSTEM_CONTEXT_PTR();
-    PRINT_BOOT_SWAP_TYPE(NULL, boot_swap_type());
+    PRINT_BOOT_SWAP_TYPE( NULL, boot_swap_type() );
 
     /**
      * After swap/copy of secondary slot to primary slot, boot_swap_type() returns NONE.
      * It does not reflect the fact we may be in self-test mode.
      * Use the saved value from SetImageState() to report our status.
      */
-    if (current_OTA_ImageState == eOTA_ImageState_Testing)
+    if( current_OTA_ImageState == OtaImageStateTesting )
     {
         /* in self-test, report Pending. */
-        result = eOTA_PAL_ImageState_PendingCommit;
+        result = OtaPalImageStatePendingCommit;
     }
-    else if ( (current_OTA_ImageState == eOTA_ImageState_Rejected ) ||
-              (current_OTA_ImageState == eOTA_ImageState_Aborted ) )
+    else if( ( current_OTA_ImageState == OtaImageStateRejected ) ||
+             ( current_OTA_ImageState == OtaImageStateAborted ) )
     {
-        result = eOTA_PAL_ImageState_Invalid;
+        result = OtaPalImageStateInvalid;
     }
-    else if (current_OTA_ImageState == eOTA_ImageState_Accepted)
+    else if( current_OTA_ImageState == OtaImageStateAccepted )
     {
-        result = eOTA_PAL_ImageState_Valid;
+        result = OtaPalImageStateValid;
     }
     else
     {
-        //result = eOTA_PAL_ImageState_Valid;
-        result = eOTA_ImageState_Unknown;
+        /*result = OtaPalImageStateValid; */
+        result = OtaImageStateUnknown;
     }
 
-    PRINT_PAL_STATE( "<------------------------- prvPAL_GetPlatformImageState() DONE: ", result);
+    PRINT_PAL_STATE( "<------------------------- prvPAL_GetPlatformImageState() DONE: ", result );
     return result;
 }
 
