@@ -135,7 +135,7 @@ static const char pcOTA_PAL_CERT_END[] = "-----END CERTIFICATE-----";
  * @brief Macro to print PAL state
  */
     #define PRINT_PAL_STATE( title, palState )
-#else  /* if 1 */
+#else /* if 1 */
     #define PRINT_SYSTEM_CONTEXT_PTR()    LogDebug( ( "   sys_ctx: %p\n", sys_ctx ) );
 
     #define PRINT_BOOT_SWAP_TYPE( title, boot_type )                                 \
