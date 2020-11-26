@@ -921,10 +921,8 @@ int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
  */
 OtaErr_t prvPAL_ActivateNewImage( OtaFileContext_t * const C )
 {
-    ( void ) C;
-
     LogInfo( ("entered %s()", __func__) );
-    prvPAL_ResetDevice();
+    prvPAL_ResetDevice( C );
     return OTA_ERR_NONE;
 }
 
