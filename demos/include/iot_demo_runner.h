@@ -58,6 +58,12 @@
         #undef democonfigDEMO_PRIORITY
         #define democonfigDEMO_PRIORITY     democonfigCORE_MQTT_CONNECTION_SHARING_DEMO_TASK_PRIORITY
     #endif
+#elif defined( CONFIG_CORE_HTTP_MUTUAL_AUTH_DEMO_ENABLED )
+    #define DEMO_entryFUNCTION              RunCoreHttpMutualAuthDemo
+#elif defined( CONFIG_CORE_HTTP_S3_DOWNLOAD_DEMO_ENABLED )
+    #define DEMO_entryFUNCTION              RunCoreHttpS3DownloadDemo
+#elif defined( CONFIG_CORE_HTTP_S3_UPLOAD_DEMO_ENABLED )
+    #define DEMO_entryFUNCTION              RunCoreHttpS3UploadDemo
 #elif defined( CONFIG_DEVICE_SHADOW_DEMO_ENABLED )
     #define DEMO_entryFUNCTION              RunDeviceShadowDemo
     #if defined( democonfigSHADOW_DEMO_TASK_STACK_SIZE )
@@ -67,6 +73,16 @@
     #if defined( democonfigSHADOW_DEMO_TASK_PRIORITY )
         #undef democonfigDEMO_PRIORITY
         #define democonfigDEMO_PRIORITY     democonfigSHADOW_DEMO_TASK_PRIORITY
+    #endif
+#elif defined( CONFIG_JOBS_DEMO_ENABLED )
+    #define DEMO_entryFUNCTION              RunJobsDemo
+    #if defined( democonfigJOBS_DEMO_TASK_STACK_SIZE )
+        #undef democonfigDEMO_STACKSIZE
+        #define democonfigDEMO_STACKSIZE    democonfigJOBS_DEMO_TASK_STACK_SIZE
+    #endif
+    #if defined( democonfigJOBS_DEMO_TASK_PRIORITY )
+        #undef democonfigDEMO_PRIORITY
+        #define democonfigDEMO_PRIORITY     democonfigJOBS_DEMO_TASK_PRIORITY
     #endif
 #elif defined( CONFIG_GREENGRASS_DISCOVERY_DEMO_ENABLED )
     #define DEMO_entryFUNCTION              vStartGreenGrassDiscoveryTask

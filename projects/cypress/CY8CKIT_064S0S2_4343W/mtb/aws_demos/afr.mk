@@ -174,13 +174,16 @@ SOURCES+=\
 	$(CY_AFR_ROOT)/demos/demo_runner/aws_demo_version.c\
 	$(CY_AFR_ROOT)/demos/demo_runner/iot_demo_freertos.c\
 	$(CY_AFR_ROOT)/demos/demo_runner/iot_demo_runner.c\
+	$(CY_AFR_ROOT)/demos/common/http_demo_helpers/http_demo_utils.c\
 	$(CY_AFR_ROOT)/demos/common/mqtt_demo_helpers/mqtt_demo_helpers.c\
+	$(CY_AFR_ROOT)/demos/common/pkcs11_helpers/pkcs11_helpers.c\
 	$(wildcard $(CY_AFR_ROOT)/demos/dev_mode_key_provisioning/src/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/greengrass_connectivity/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/defender/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/https/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/mqtt/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/coreMQTT/*.c)\
+	$(wildcard $(CY_AFR_ROOT)/demos/coreHTTP/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/network_manager/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/tcp/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/demos/shadow/*.c)\
@@ -195,7 +198,9 @@ INCLUDES+=\
 	$(CY_AFR_ROOT)/demos/include\
 	$(CY_AFR_ROOT)/demos/network_manager\
 	$(CY_AFR_ROOT)/demos/tcp\
+	$(CY_AFR_ROOT)/demos/common/http_demo_helpers\
 	$(CY_AFR_ROOT)/demos/common/mqtt_demo_helpers\
+	$(CY_AFR_ROOT)/demos/common/pkcs11_helpers\
 
 ################################################################################
 # libraries (3rd party)
@@ -249,7 +254,7 @@ SOURCES+=\
 	$(wildcard $(CY_AFR_ROOT)/libraries/abstractions/secure_sockets/lwip/*c)\
 	$(wildcard $(CY_AFR_ROOT)/libraries/abstractions/pkcs11/corePKCS11/source/*.c)\
 	$(wildcard $(CY_AFR_ROOT)/libraries/abstractions/transport/secure_sockets/*.c)\
-	$(wildcard $(CY_AFR_ROOT)/libraries/abstractions/retry_utils/freertos/*.c)\
+	$(wildcard $(CY_AFR_ROOT)/libraries/abstractions/backoff_algorithm/source/*.c)\
 
 INCLUDES+=\
 	$(CY_AFR_ROOT)/libraries/abstractions/pkcs11/corePKCS11/source/include\
@@ -260,7 +265,7 @@ INCLUDES+=\
 	$(CY_AFR_ROOT)/libraries/abstractions/platform/include\
 	$(CY_AFR_ROOT)/libraries/abstractions/platform/include/platform\
 	$(CY_AFR_ROOT)/libraries/abstractions/platform/include/types\
-	$(CY_AFR_ROOT)/libraries/abstractions/retry_utils\
+	$(CY_AFR_ROOT)/libraries/abstractions/backoff_algorithm/source/include\
 	$(CY_AFR_ROOT)/libraries/abstractions/secure_sockets\
 	$(CY_AFR_ROOT)/libraries/abstractions/secure_sockets/include\
 	$(CY_AFR_ROOT)/libraries/abstractions/transport/secure_sockets\
@@ -315,7 +320,7 @@ SOURCES+=\
 	$(CY_AFR_ROOT)/libraries/coreMQTT/source/core_mqtt_state.c\
 	$(CY_AFR_ROOT)/libraries/coreMQTT/source/core_mqtt.c\
 	$(CY_AFR_ROOT)/libraries/coreHTTP/source/core_http_client.c\
-	$(CY_AFR_ROOT)/libraries/coreHTTP/source/3rdparty/http_parser/http_parser.c
+	$(CY_AFR_ROOT)/libraries/coreHTTP/source/dependency/3rdparty/http_parser/http_parser.c
 
 INCLUDES+=\
 	$(CY_AFR_ROOT)/libraries/c_sdk/standard/common\
@@ -342,7 +347,7 @@ INCLUDES+=\
 	$(CY_AFR_ROOT)/libraries/coreMQTT/source/interface\
 	$(CY_AFR_ROOT)/libraries/coreHTTP/source/include\
 	$(CY_AFR_ROOT)/libraries/coreHTTP/source/interface\
-	$(CY_AFR_ROOT)/libraries/coreHTTP/source/3rdparty/http_parser\
+	$(CY_AFR_ROOT)/libraries/coreHTTP/source/dependency/3rdparty/http_parser\
 	$(CY_AFR_ROOT)/libraries/device_shadow_for_aws/source/include\
 	$(CY_AFR_ROOT)/libraries/coreJSON/source/include\
 	$(CY_AFR_ROOT)/libraries/device_defender_for_aws/source/include\

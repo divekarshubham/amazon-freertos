@@ -64,7 +64,10 @@
 #include "core_mqtt.h"
 
 /* Retry utilities include. */
-#include "retry_utils.h"
+#include "backoff_algorithm.h"
+
+/* Include PKCS11 helpers header. */
+#include "pkcs11_helpers.h"
 
 /* Transport interface implementation include header for TLS. */
 #include "transport_secure_sockets.h"
@@ -132,6 +135,23 @@
 /*-----------------------------------------------------------*/
 
 /**
+ * @brief The maximum number of retries for network operation with server.
+ */
+#define RETRY_MAX_ATTEMPTS                                ( 5U )
+
+/**
+ * @brief The maximum back-off delay (in milliseconds) for retrying failed operation
+ *  with server.
+ */
+#define RETRY_MAX_BACKOFF_DELAY_MS                        ( 5000U )
+
+/**
+ * @brief The base back-off delay (in milliseconds) to use for network operation retry
+ * attempts.
+ */
+#define RETRY_BACKOFF_BASE_MS                             ( 500U )
+
+/**
  * @brief Timeout for receiving CONNACK packet in milliseconds.
  */
 #define mqttexampleCONNACK_RECV_TIMEOUT_MS                ( 1000U )
@@ -163,7 +183,13 @@
 /**
  * @brief Timeout for MQTT_ProcessLoop in milliseconds.
  */
-#define mqttexamplePROCESS_LOOP_TIMEOUT_MS                ( 500U )
+#define mqttexamplePROCESS_LOOP_TIMEOUT_MS                ( 700U )
+
+/**
+ * @brief The maximum number of times to call MQTT_ProcessLoop() when polling
+ * for a specific packet from the broker.
+ */
+#define MQTT_PROCESS_LOOP_PACKET_WAIT_COUNT_MAX           ( 30U )
 
 /**
  * @brief Keep alive time reported to the broker while establishing
@@ -201,6 +227,22 @@
 #define MILLISECONDS_PER_TICK                             ( MILLISECONDS_PER_SECOND / configTICK_RATE_HZ )
 
 /*-----------------------------------------------------------*/
+
+/**
+ * @brief The random number generator to use for exponential backoff with
+ * jitter retry logic.
+ * This function is an implementation the #BackoffAlgorithm_RNG_t interface type
+ * of the backoff algorithm library API.
+ *
+ * The PKCS11 module is used to generate the random number as it allows access
+ * to a True Random Number Generator (TRNG) if the vendor platform supports it.
+ * It is recommended to use a device-specific unique random number generator so
+ * that probability of collisions from devices in connection retries is mitigated.
+ *
+ * @return A positive value if generating the random number was successful; otherwise
+ * -1 to indicate failure.
+ */
+static int32_t prvGenerateRandomNumber();
 
 /**
  * @brief Connect to MQTT broker with reconnection retries.
@@ -304,6 +346,18 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
                               MQTTDeserializedInfo_t * pxDeserializedInfo );
 
+/**
+ * @brief Helper function to wait for a specific incoming packet from the
+ * broker.
+ *
+ * @param[in] pxMQTTContext MQTT context pointer.
+ * @param[in] usPacketType Packet type to wait for.
+ *
+ * @return The return status from call to #MQTT_ProcessLoop API.
+ */
+static MQTTStatus_t prvWaitForPacket( MQTTContext_t * pxMQTTContext,
+                                      uint16_t usPacketType );
+
 /*-----------------------------------------------------------*/
 
 /**
@@ -337,6 +391,20 @@ static uint16_t usSubscribePacketIdentifier;
  * request.
  */
 static uint16_t usUnsubscribePacketIdentifier;
+
+/**
+ * @brief MQTT packet type received from the MQTT broker.
+ *
+ * @note Only on receiving incoming PUBLISH, SUBACK, and UNSUBACK, this
+ * variable is updated. For MQTT packets PUBACK and PINGRESP, the variable is
+ * not updated since there is no need to specifically wait for it in this demo.
+ * A single variable suffices as this demo uses single task and requests one operation
+ * (of PUBLISH, SUBSCRIBE, UNSUBSCRIBE) at a time before expecting response from
+ * the broker. Hence it is not possible to receive multiple packets of type PUBLISH,
+ * SUBACK, and UNSUBACK in a single call of #prvWaitForPacket.
+ * For a multi task application, consider a different method to wait for the packet, if needed.
+ */
+static uint16_t usPacketTypeReceived = 0U;
 
 /**
  * @brief A pair containing a topic filter and its SUBACK status.
@@ -393,14 +461,14 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
     NetworkContext_t xNetworkContext = { 0 };
     MQTTContext_t xMQTTContext = { 0 };
     MQTTStatus_t xMQTTStatus;
-    uint32_t ulDemoRunCount = 0;
+    uint32_t ulDemoRunCount = 0UL, ulDemoSuccessCount = 0UL;
     TransportSocketStatus_t xNetworkStatus;
     BaseType_t xIsConnectionEstablished = pdFALSE;
 
     /* Upon return, pdPASS will indicate a successful demo execution.
     * pdFAIL will indicate some failures occurred during execution. The
     * user of this demo must check the logs for any failure codes. */
-    BaseType_t xDemoStatus = pdPASS;
+    BaseType_t xDemoStatus = pdFAIL;
 
     /* Remove compiler warnings about unused parameters. */
     ( void ) awsIotMqttMode;
@@ -415,7 +483,7 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
      */
     ulGlobalEntryTimeMs = prvGetTimeMs();
 
-    for( ; ulDemoRunCount < democonfigMQTT_MAX_DEMO_COUNT; ulDemoRunCount++ )
+    for( ulDemoRunCount = 0UL; ( ulDemoRunCount < democonfigMQTT_MAX_DEMO_COUNT ); ulDemoRunCount++ )
     {
         /****************************** Connect. ******************************/
 
@@ -444,7 +512,7 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
         {
             /* If server rejected the subscription request, attempt to resubscribe to topic.
              * Attempts are made according to the exponential backoff retry strategy
-             * implemented in retry_utils. */
+             * implemented in backoff_algorithm. */
             xDemoStatus = prvMQTTSubscribeWithBackoffRetries( &xMQTTContext );
         }
 
@@ -461,16 +529,16 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
             if( xDemoStatus == pdPASS )
             {
                 /* Process incoming publish echo, since application subscribed to the same
-                 * topic, the broker will send publish message back to the application. */
+                 * topic, the broker will send publish message back to the application.
+                 * #prvWaitForPacket will try to receive an incoming PUBLISH packet from broker.
+                 * Please note that PUBACK for the outgoing PUBLISH may also be received before
+                 * receiving an incoming PUBLISH. */
                 LogInfo( ( "Attempt to receive publish message from broker." ) );
-                xMQTTStatus = MQTT_ProcessLoop( &xMQTTContext, mqttexamplePROCESS_LOOP_TIMEOUT_MS );
+                xMQTTStatus = prvWaitForPacket( &xMQTTContext, MQTT_PACKET_TYPE_PUBLISH );
 
                 if( xMQTTStatus != MQTTSuccess )
                 {
                     xDemoStatus = pdFAIL;
-                    LogError( ( "MQTT_ProcessLoop failed: LoopDuration=%u, Error=%s",
-                                mqttexamplePROCESS_LOOP_TIMEOUT_MS,
-                                MQTT_Status_strerror( xMQTTStatus ) ) );
                 }
             }
 
@@ -490,14 +558,11 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
         if( xDemoStatus == pdPASS )
         {
             /* Process incoming UNSUBACK packet from the broker. */
-            xMQTTStatus = MQTT_ProcessLoop( &xMQTTContext, mqttexamplePROCESS_LOOP_TIMEOUT_MS );
+            xMQTTStatus = prvWaitForPacket( &xMQTTContext, MQTT_PACKET_TYPE_UNSUBACK );
 
             if( xMQTTStatus != MQTTSuccess )
             {
                 xDemoStatus = pdFAIL;
-                LogError( ( "Failed to receive UNSUBACK packet from broker: ProcessLoopDuration=%u, Error=%s",
-                            mqttexamplePROCESS_LOOP_TIMEOUT_MS,
-                            MQTT_Status_strerror( xMQTTStatus ) ) );
             }
         }
 
@@ -539,21 +604,63 @@ int RunCoreMqttMutualAuthDemo( bool awsIotMqttMode,
              * bombard the broker. */
             LogInfo( ( "Demo completed an iteration successfully." ) );
             LogInfo( ( "Demo iteration %lu completed successfully.", ( ulDemoRunCount + 1UL ) ) );
+
+            /* Update success count. */
+            ulDemoSuccessCount++;
         }
         else
         {
-            /* Terminate the demo due to failure. */
+            /* Demo loop will be repeated for democonfigMQTT_MAX_DEMO_COUNT
+             * times even if current loop resulted in a failure. */
             LogInfo( ( "Demo failed at iteration %lu.", ( ulDemoRunCount + 1UL ) ) );
-            LogInfo( ( "Exiting demo." ) );
-            break;
         }
 
         LogInfo( ( "Short delay before starting the next iteration.... " ) );
         vTaskDelay( mqttexampleDELAY_BETWEEN_DEMO_ITERATIONS_TICKS );
     }
 
+    /* Demo run is considered successful if more than half of
+     * #democonfigMQTT_MAX_DEMO_COUNT is successful. */
+    if( ulDemoSuccessCount > ( democonfigMQTT_MAX_DEMO_COUNT / 2 ) )
+    {
+        xDemoStatus = pdPASS;
+        LogInfo( ( "Demo run is successful with %lu successful loops out of total %lu loops.",
+                   ( ulDemoSuccessCount ),
+                   democonfigMQTT_MAX_DEMO_COUNT ) );
+    }
+    else
+    {
+        xDemoStatus = pdFAIL;
+        LogInfo( ( "Demo run failed with %lu failed loops out of total %lu loops."
+                   " RequiredSuccessCounts=%lu.",
+                   ( democonfigMQTT_MAX_DEMO_COUNT - ulDemoSuccessCount ),
+                   democonfigMQTT_MAX_DEMO_COUNT,
+                   ( ( democonfigMQTT_MAX_DEMO_COUNT / 2 ) + 1 ) ) );
+    }
+
     return ( xDemoStatus == pdPASS ) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+/*-----------------------------------------------------------*/
+
+static int32_t prvGenerateRandomNumber()
+{
+    uint32_t ulRandomNum;
+
+    /* Use the PKCS11 module to generate a random number. */
+    if( xPkcs11GenerateRandomNumber( ( uint8_t * ) &ulRandomNum,
+                                     ( sizeof( ulRandomNum ) == pdPASS ) ) )
+    {
+        ulRandomNum = ( ulRandomNum & INT32_MAX );
+    }
+    else
+    {
+        /* Set the return value as negative to indicate failure. */
+        ulRandomNum = -1;
+    }
+
+    return ( int32_t ) ulRandomNum;
+}
+
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNetworkContext )
@@ -562,8 +669,9 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
     SocketsConfig_t xSocketsConfig = { 0 };
     BaseType_t xStatus = pdPASS;
     TransportSocketStatus_t xNetworkStatus = TRANSPORT_SOCKET_STATUS_SUCCESS;
-    RetryUtilsStatus_t xRetryUtilsStatus = RetryUtilsSuccess;
-    RetryUtilsParams_t xReconnectParams;
+    BackoffAlgorithmStatus_t xBackoffAlgStatus = BackoffAlgorithmSuccess;
+    BackoffAlgorithmContext_t xReconnectParams;
+    uint16_t usNextRetryBackOff = 0U;
 
     /* Set the credentials for establishing a TLS connection. */
     /* Initializer server information. */
@@ -582,8 +690,11 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
     xSocketsConfig.recvTimeoutMs = mqttexampleTRANSPORT_SEND_RECV_TIMEOUT_MS;
 
     /* Initialize reconnect attempts and interval. */
-    RetryUtils_ParamsReset( &xReconnectParams );
-    xReconnectParams.maxRetryAttempts = MAX_RETRY_ATTEMPTS;
+    BackoffAlgorithm_InitializeParams( &xReconnectParams,
+                                       RETRY_BACKOFF_BASE_MS,
+                                       RETRY_MAX_BACKOFF_DELAY_MS,
+                                       RETRY_MAX_ATTEMPTS,
+                                       prvGenerateRandomNumber );
 
     /* Attempt to connect to MQTT broker. If connection fails, retry after
      * a timeout. Timeout value will exponentially increase till maximum
@@ -604,22 +715,26 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
 
         if( xNetworkStatus != TRANSPORT_SOCKET_STATUS_SUCCESS )
         {
-            LogWarn( ( "Connection to the broker failed. Status=%d ."
-                       "Retrying connection with backoff and jitter.", xNetworkStatus ) );
-            xStatus = pdFAIL;
+            /* Get back-off value (in milliseconds) for the next connection retry. */
+            xBackoffAlgStatus = BackoffAlgorithm_GetNextBackoff( &xReconnectParams, &usNextRetryBackOff );
+            configASSERT( xBackoffAlgStatus != BackoffAlgorithmRngFailure );
 
-            LogInfo( ( "Retry attempt %lu out of maximum retry attempts %lu.",
-                       ( xReconnectParams.attemptsDone + 1 ),
-                       MAX_RETRY_ATTEMPTS ) );
-            xRetryUtilsStatus = RetryUtils_BackoffAndSleep( &xReconnectParams );
-        }
+            if( xBackoffAlgStatus == BackoffAlgorithmRetriesExhausted )
+            {
+                LogError( ( "Connection to the broker failed, all attempts exhausted." ) );
+                xStatus = pdFAIL;
+            }
+            else if( xBackoffAlgStatus == BackoffAlgorithmSuccess )
+            {
+                LogWarn( ( "Connection to the broker failed. Retrying connection after backoff delay." ) );
+                vTaskDelay( pdMS_TO_TICKS( usNextRetryBackOff ) );
 
-        if( xRetryUtilsStatus == RetryUtilsRetriesExhausted )
-        {
-            LogError( ( "Connection to the broker failed, all attempts exhausted." ) );
-            xNetworkStatus = TRANSPORT_SOCKET_STATUS_CONNECT_FAILURE;
+                LogInfo( ( "Retry attempt %lu out of maximum retry attempts %lu.",
+                           ( xReconnectParams.attemptsDone + 1 ),
+                           xReconnectParams.maxRetryAttempts ) );
+            }
         }
-    } while( ( xNetworkStatus != TRANSPORT_SOCKET_STATUS_SUCCESS ) && ( xRetryUtilsStatus == RetryUtilsSuccess ) );
+    } while( ( xNetworkStatus != TRANSPORT_SOCKET_STATUS_SUCCESS ) && ( xBackoffAlgStatus == BackoffAlgorithmSuccess ) );
 
     return xStatus;
 }
@@ -709,8 +824,8 @@ static void prvUpdateSubAckStatus( MQTTPacketInfo_t * pxPacketInfo )
 static BaseType_t prvMQTTSubscribeWithBackoffRetries( MQTTContext_t * pxMQTTContext )
 {
     MQTTStatus_t xResult = MQTTSuccess;
-    RetryUtilsStatus_t xRetryUtilsStatus = RetryUtilsSuccess;
-    RetryUtilsParams_t xRetryParams;
+    BackoffAlgorithmStatus_t xBackoffAlgStatus = BackoffAlgorithmSuccess;
+    BackoffAlgorithmContext_t xRetryParams;
     MQTTSubscribeInfo_t xMQTTSubscription[ mqttexampleTOPIC_COUNT ];
     bool xFailedSubscribeToTopic = false;
     uint32_t ulTopicCount = 0U;
@@ -729,8 +844,11 @@ static BaseType_t prvMQTTSubscribeWithBackoffRetries( MQTTContext_t * pxMQTTCont
     xMQTTSubscription[ 0 ].topicFilterLength = ( uint16_t ) strlen( mqttexampleTOPIC );
 
     /* Initialize retry attempts and interval. */
-    RetryUtils_ParamsReset( &xRetryParams );
-    xRetryParams.maxRetryAttempts = MAX_RETRY_ATTEMPTS;
+    BackoffAlgorithm_InitializeParams( &xRetryParams,
+                                       RETRY_BACKOFF_BASE_MS,
+                                       RETRY_MAX_BACKOFF_DELAY_MS,
+                                       RETRY_MAX_ATTEMPTS,
+                                       prvGenerateRandomNumber );
 
     do
     {
@@ -764,12 +882,11 @@ static BaseType_t prvMQTTSubscribeWithBackoffRetries( MQTTContext_t * pxMQTTCont
              * receiving Publish message before subscribe ack is zero; but application
              * must be ready to receive any packet.  This demo uses the generic packet
              * processing function everywhere to highlight this fact. */
-            xResult = MQTT_ProcessLoop( pxMQTTContext, mqttexamplePROCESS_LOOP_TIMEOUT_MS );
+            xResult = prvWaitForPacket( pxMQTTContext, MQTT_PACKET_TYPE_SUBACK );
 
             if( xResult != MQTTSuccess )
             {
-                LogError( ( "Failed to receive SUBACK response for SUBSCRIBE request: ProcessLoopDuration=%u, Error=%s",
-                            mqttexamplePROCESS_LOOP_TIMEOUT_MS, MQTT_Status_strerror( xResult ) ) );
+                xStatus = pdFAIL;
             }
         }
 
@@ -786,20 +903,30 @@ static BaseType_t prvMQTTSubscribeWithBackoffRetries( MQTTContext_t * pxMQTTCont
             {
                 if( xTopicFilterContext[ ulTopicCount ].xSubAckStatus == MQTTSubAckFailure )
                 {
-                    LogWarn( ( "Server rejected subscription request. Attempting to re-subscribe to topic %s.",
-                               xTopicFilterContext[ ulTopicCount ].pcTopicFilter ) );
+                    uint16_t usNextRetryBackOff = 0U;
                     xFailedSubscribeToTopic = true;
-                    xRetryUtilsStatus = RetryUtils_BackoffAndSleep( &xRetryParams );
+
+                    /* Calculate back-off period for next retry of subscribe request. */
+                    xBackoffAlgStatus = BackoffAlgorithm_GetNextBackoff( &xRetryParams, &usNextRetryBackOff );
+                    configASSERT( xBackoffAlgStatus != BackoffAlgorithmRngFailure );
+
+                    if( xBackoffAlgStatus == BackoffAlgorithmSuccess )
+                    {
+                        /* Retry subscribe after exponential back-off. */
+                        LogWarn( ( "Server rejected subscription request. Attempting to re-subscribe to topic %s.",
+                                   xTopicFilterContext[ ulTopicCount ].pcTopicFilter ) );
+                        vTaskDelay( pdMS_TO_TICKS( usNextRetryBackOff ) );
+                    }
+                    else
+                    {
+                        LogError( ( "SUBSCRIBE request re-tries exhausted." ) );
+                    }
+
                     break;
                 }
             }
         }
-
-        if( xRetryUtilsStatus == RetryUtilsRetriesExhausted )
-        {
-            LogError( ( "SUBSCRIBE request re-tries exhausted." ) );
-        }
-    } while( ( xFailedSubscribeToTopic == true ) && ( xRetryUtilsStatus == RetryUtilsSuccess ) );
+    } while( ( xFailedSubscribeToTopic == true ) && ( xBackoffAlgStatus == BackoffAlgorithmSuccess ) );
 
     return xStatus;
 }
@@ -894,6 +1021,9 @@ static void prvMQTTProcessResponse( MQTTPacketInfo_t * pxIncomingPacket,
 
         case MQTT_PACKET_TYPE_SUBACK:
 
+            /* Update the packet type received to SUBACK. */
+            usPacketTypeReceived = MQTT_PACKET_TYPE_SUBACK;
+
             /* A SUBACK from the broker, containing the server response to our subscription request, has been received.
              * It contains the status code indicating server approval/rejection for the subscription to the single topic
              * requested. The SUBACK will be parsed to obtain the status code, and this status code will be stored in global
@@ -916,12 +1046,17 @@ static void prvMQTTProcessResponse( MQTTPacketInfo_t * pxIncomingPacket,
 
         case MQTT_PACKET_TYPE_UNSUBACK:
             LogInfo( ( "Unsubscribed from the topic %s.", mqttexampleTOPIC ) );
+
+            /* Update the packet type received to UNSUBACK. */
+            usPacketTypeReceived = MQTT_PACKET_TYPE_UNSUBACK;
+
             /* Make sure ACK packet identifier matches with Request packet identifier. */
             configASSERT( usUnsubscribePacketIdentifier == usPacketId );
             break;
 
         case MQTT_PACKET_TYPE_PINGRESP:
             LogInfo( ( "Ping Response successfully received." ) );
+
             break;
 
         /* Any other packet type is invalid. */
@@ -936,6 +1071,9 @@ static void prvMQTTProcessResponse( MQTTPacketInfo_t * pxIncomingPacket,
 static void prvMQTTProcessIncomingPublish( MQTTPublishInfo_t * pxPublishInfo )
 {
     configASSERT( pxPublishInfo != NULL );
+
+    /* Set the global for indicating that an incoming publish is received. */
+    usPacketTypeReceived = MQTT_PACKET_TYPE_PUBLISH;
 
     /* Process incoming Publish. */
     LogInfo( ( "Incoming QoS : %d\n", pxPublishInfo->qos ) );
@@ -996,6 +1134,37 @@ static uint32_t prvGetTimeMs( void )
     ulTimeMs = ( uint32_t ) ( ulTimeMs - ulGlobalEntryTimeMs );
 
     return ulTimeMs;
+}
+
+/*-----------------------------------------------------------*/
+
+static MQTTStatus_t prvWaitForPacket( MQTTContext_t * pxMQTTContext,
+                                      uint16_t usPacketType )
+{
+    uint8_t ucCount = 0U;
+    MQTTStatus_t xMQTTStatus = MQTTSuccess;
+
+    /* Reset the packet type received. */
+    usPacketTypeReceived = 0U;
+
+    while( ( usPacketTypeReceived != usPacketType ) &&
+           ( ucCount++ < MQTT_PROCESS_LOOP_PACKET_WAIT_COUNT_MAX ) &&
+           ( xMQTTStatus == MQTTSuccess ) )
+    {
+        /* Event callback will set #usPacketTypeReceived when receiving appropriate packet. This
+         * will wait for at most mqttexamplePROCESS_LOOP_TIMEOUT_MS. */
+        xMQTTStatus = MQTT_ProcessLoop( pxMQTTContext, mqttexamplePROCESS_LOOP_TIMEOUT_MS );
+    }
+
+    if( ( xMQTTStatus != MQTTSuccess ) || ( usPacketTypeReceived != usPacketType ) )
+    {
+        LogError( ( "MQTT_ProcessLoop failed to receive packet: Packet type=%02X, LoopDuration=%u, Status=%s",
+                    usPacketType,
+                    ( mqttexamplePROCESS_LOOP_TIMEOUT_MS * ucCount ),
+                    MQTT_Status_strerror( xMQTTStatus ) ) );
+    }
+
+    return xMQTTStatus;
 }
 
 /*-----------------------------------------------------------*/

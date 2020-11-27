@@ -386,7 +386,7 @@
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\standard\mqtt\src</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreMQTT\source\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreMQTT\source\interface</state>
-					<state>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\retry_utils</state>
+					<state>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\backoff_algorithm</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\transport\secure_sockets</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\standard\serializer\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\aws\shadow\include</state>
@@ -394,7 +394,9 @@
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\standard\https\test\access</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\standard\https\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\c_sdk\standard\https\src</state>
-					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\3rdparty\http_parser</state>
+					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\include</state>
+					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\interface</state>
+					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\dependency\3rdparty\http_parser</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\freertos_plus\aws\greengrass\test</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\freertos_plus\aws\greengrass\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\freertos_plus\aws\greengrass\src</state>
@@ -402,9 +404,6 @@
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\freertos_plus\aws\ota\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\3rdparty\mbedtls\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\freertos_plus\standard\freertos_plus_cli\include</state>
-					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\include</state>
-					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\interface</state>
-					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\3rdparty\http_parser</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\coreJSON\source\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\device_shadow_for_aws\source\include</state>
 					<state>$PROJ_DIR$\..\..\..\..\..\libraries\device_defender_for_aws\source\include</state>
@@ -1608,15 +1607,15 @@
 				</group>
 			</group>
 			<group>
-				<name>retry_utils</name>
+				<name>backoff_algorithm</name>
 				<group>
 					<name>freertos</name>
 					<file>
-						<name>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\retry_utils\freertos\retry_utils_freertos.c</name>
+						<name>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\backoff_algorithm\source\backoff_algorithm.c</name>
 					</file>
 				</group>
 				<file>
-					<name>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\retry_utils\retry_utils.h</name>
+					<name>$PROJ_DIR$\..\..\..\..\..\libraries\abstractions\backoff_algorithm\source\include\backoff_algorithm.h</name>
 				</file>
 			</group>
 			<group>
@@ -2293,21 +2292,24 @@
 			<name>coreHTTP</name>
 			<group>
 				<name>source</name>
-				<group>
-					<name>3rdparty</name>
-					<group>
-						<name>http_parser</name>
-						<file>
-							<name>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\3rdparty\http_parser\http_parser.c</name>
-						</file>
-						<file>
-							<name>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\3rdparty\http_parser\http_parser.h</name>
-						</file>
-					</group>
-				</group>
 				<file>
 					<name>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\core_http_client.c</name>
 				</file>
+				<group>
+					<name>dependency</name>
+					<group>
+						<name>3rdparty</name>
+						<group>
+							<name>http_parser</name>
+							<file>
+								<name>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\dependency\3rdparty\http_parser\http_parser.c</name>
+							</file>
+							<file>
+								<name>$PROJ_DIR$\..\..\..\..\..\libraries\coreHTTP\source\dependency\3rdparty\http_parser\http_parser.h</name>
+							</file>
+						</group>
+					</group>
+				</group>
 				<group>
 					<name>include</name>
 					<file>
@@ -3034,6 +3036,9 @@
 			</file>
 			<file>
 				<name>$PROJ_DIR$\..\..\..\..\..\tests\integration_test\shadow_system_test.c</name>
+			</file>
+			<file>
+				<name>$PROJ_DIR$\..\..\..\..\..\tests\integration_test\core_http_system_test.c</name>
 			</file>
 		</group>
 	</group>
