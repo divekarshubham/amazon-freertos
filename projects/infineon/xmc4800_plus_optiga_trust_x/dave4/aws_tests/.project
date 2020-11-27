@@ -1389,14 +1389,14 @@
 			<locationURI>AFR_HOME/libraries/coreMQTT/source/interface/transport_interface.h</locationURI>
 		</link>
 		<link>
-			<name>libraries/abstractions/retry_utils/freertos/retry_utils_freertos.c</name>
+			<name>libraries/abstractions/backoff_algorithm/source/backoff_algorithm.c</name>
 			<type>1</type>
-			<locationURI>AFR_HOME/libraries/abstractions/retry_utils/freertos/retry_utils_freertos.c</locationURI>
+			<locationURI>AFR_HOME/libraries/abstractions/backoff_algorithm/source/backoff_algorithm.c</locationURI>
 		</link>
 		<link>
-			<name>libraries/abstractions/retry_utils/retry_utils.h</name>
+			<name>libraries/abstractions/backoff_algorithm/source/include/backoff_algorithm.h</name>
 			<type>1</type>
-			<locationURI>AFR_HOME/libraries/abstractions/retry_utils/retry_utils.h</locationURI>
+			<locationURI>AFR_HOME/libraries/abstractions/backoff_algorithm/source/include/backoff_algorithm.h</locationURI>
 		</link>
 		<link>
 			<name>libraries/abstractions/transport/secure_sockets/transport_secure_sockets.h</name>
@@ -1504,9 +1504,39 @@
 			<locationURI>AFR_HOME/libraries/c_sdk/standard/https/src/iot_https_utils.c</locationURI>
 		</link>
 		<link>
-			<name>libraries/coreHTTP/source/3rdparty/http_parser/http_parser.c</name>
+			<name>libraries/coreHTTP/source/core_http_client.c</name>
 			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/3rdparty/http_parser/http_parser.c</locationURI>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/core_http_client.c</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/dependency/3rdparty/http_parser/http_parser.c</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/dependency/3rdparty/http_parser/http_parser.c</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/include/core_http_client.h</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_client.h</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/include/core_http_client_private.h</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_client_private.h</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/include/core_http_config_defaults.h</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_config_defaults.h</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/interface/transport_interface.h</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/interface/transport_interface.h</locationURI>
+		</link>
+		<link>
+			<name>libraries/coreHTTP/source/dependency/3rdparty/http_parser/http_parser.h</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/libraries/coreHTTP/source/dependency/3rdparty/http_parser/http_parser.h</locationURI>
 		</link>
 		<link>
 			<name>libraries/freertos_plus/aws/greengrass/src/aws_greengrass_discovery.c</name>
@@ -1679,36 +1709,6 @@
 			<locationURI>AFR_HOME/libraries/freertos_plus/standard/freertos_plus_posix/include/FreeRTOS_POSIX_portable_default.h</locationURI>
 		</link>
 		<link>
-			<name>libraries/coreHTTP/source/core_http_client.c</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/core_http_client.c</locationURI>
-		</link>
-		<link>
-			<name>libraries/coreHTTP/source/include/core_http_client.h</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_client.h</locationURI>
-		</link>
-		<link>
-			<name>libraries/coreHTTP/source/include/core_http_client_private.h</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_client_private.h</locationURI>
-		</link>
-		<link>
-			<name>libraries/coreHTTP/source/include/core_http_config_defaults.h</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/include/core_http_config_defaults.h</locationURI>
-		</link>
-		<link>
-			<name>libraries/coreHTTP/source/interface/transport_interface.h</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/interface/transport_interface.h</locationURI>
-		</link>
-		<link>
-			<name>libraries/coreHTTP/source/3rdparty/http_parser/http_parser.h</name>
-			<type>1</type>
-			<locationURI>AFR_HOME/libraries/coreHTTP/source/3rdparty/http_parser/http_parser.h</locationURI>
-		</link>
-		<link>
 			<name>libraries/coreJSON/source/core_json.c</name>
 			<type>1</type>
 			<locationURI>AFR_HOME/libraries/coreJSON/source/core_json.c</locationURI>
@@ -1759,9 +1759,19 @@
 			<locationURI>AFR_HOME/libraries/jobs_for_aws/source/include/jobs.h</locationURI>
 		</link>
 		<link>
+			<name>demos/common/http_demo_helpers/http_demo_utils.c</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/demos/common/http_demo_helpers/http_demo_utils.c</locationURI>
+		</link>
+		<link>
 			<name>demos/common/mqtt_demo_helpers/mqtt_demo_helpers.c</name>
 			<type>1</type>
 			<locationURI>AFR_HOME/demos/common/mqtt_demo_helpers/mqtt_demo_helpers.c</locationURI>
+		</link>
+		<link>
+			<name>demos/common/pkcs11_helpers/pkcs11_helpers.c</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/demos/common/pkcs11_helpers/pkcs11_helpers.c</locationURI>
 		</link>
 		<link>
 			<name>libraries/c_sdk/aws/defender/test/unit/aws_iot_tests_defender_unit.c</name>
@@ -1997,6 +2007,11 @@
 			<name>tests/integration_test/shadow_system_test.c</name>
 			<type>1</type>
 			<locationURI>AFR_HOME/tests/integration_test/shadow_system_test.c</locationURI>
+		</link>
+		<link>
+			<name>tests/integration_test/core_http_system_test.c</name>
+			<type>1</type>
+			<locationURI>AFR_HOME/tests/integration_test/core_http_system_test.c</locationURI>
 		</link>
 		<link>
 			<name>application_code/infineon_code/console_io.c</name>
