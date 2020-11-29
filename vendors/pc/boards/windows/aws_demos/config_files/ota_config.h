@@ -46,7 +46,7 @@
     #define LIBRARY_LOG_NAME     "OTA"
 #endif
 #ifndef LIBRARY_LOG_LEVEL
-    #define LIBRARY_LOG_LEVEL    LOG_INFO
+    #define LIBRARY_LOG_LEVEL    LOG_DEBUG
 #endif
 
 #include "logging_stack.h"
@@ -146,7 +146,7 @@
  * Enable data over HTTP - ( OTA_DATA_OVER_HTTP)
  * Enable data over both MQTT & HTTP ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP )
  */
-#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_HTTP )
+#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT )
 
 /**
  * @brief The preferred protocol selected for OTA data operations.
@@ -158,6 +158,6 @@
  * Note - use OTA_DATA_OVER_HTTP for HTTP as primary data protocol.
  */
 
-#define configOTA_PRIMARY_DATA_PROTOCOL    ( OTA_DATA_OVER_HTTP )
+#define configOTA_PRIMARY_DATA_PROTOCOL    ( OTA_DATA_OVER_MQTT )
 
 #endif /* OTA_CONFIG_H_ */
