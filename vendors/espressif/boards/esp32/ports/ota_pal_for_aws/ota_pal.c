@@ -53,6 +53,7 @@
 #include "mbedtls/asn1.h"
 #include "mbedtls/bignum.h"
 #include "mbedtls/base64.h"
+#include "task.h"
 
 #define kOTA_HalfSecondDelay    pdMS_TO_TICKS( 500UL )
 #define ECDSA_INTEGER_LEN       32
@@ -363,7 +364,7 @@ static CK_RV prvGetCertificate( const char * pcLabelName,
     return xResult;
 }
 
-u8 * prvPAL_ReadAndAssumeCertificate( const u8 * const pucCertName,
+uint8_t * prvPAL_ReadAndAssumeCertificate( const uint8_t * const pucCertName,
                                       uint32_t * const ulSignerCertSize )
 {
     uint8_t * pucCertData;
@@ -407,7 +408,7 @@ OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C )
     OtaErr_t result;
     uint32_t ulSignerCertSize;
     void * pvSigVerifyContext;
-    u8 * pucSignerCert = 0;
+    uint8_t * pucSignerCert = 0;
     static spi_flash_mmap_memory_t ota_data_map;
     const void * buf = NULL;
 
@@ -419,7 +420,7 @@ OtaErr_t prvPAL_CheckFileSignature( OtaFileContext_t * const C )
         return OTA_ERR_SIGNATURE_CHECK_FAILED;
     }
 
-    pucSignerCert = prvPAL_ReadAndAssumeCertificate( ( const u8 * const ) C->pCertFilepath, &ulSignerCertSize );
+    pucSignerCert = prvPAL_ReadAndAssumeCertificate( ( const uint8_t * const ) C->pCertFilepath, &ulSignerCertSize );
 
     if( pucSignerCert == NULL )
     {

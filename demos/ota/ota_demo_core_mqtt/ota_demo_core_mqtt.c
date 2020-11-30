@@ -881,14 +881,14 @@ static void setOtaInterfaces( OtaInterfaces_t * pOtaInterfaces )
     pOtaInterfaces->mqtt.dataCallback = mqttDataCallback;
 
     /* Initialize the OTA library PAL Interface.*/
-    pOtaInterfaces->pal.getPlatformImageState = prvPAL_GetPlatformImageState;
-    pOtaInterfaces->pal.setPlatformImageState = prvPAL_SetPlatformImageState;
-    pOtaInterfaces->pal.writeBlock = prvPAL_WriteBlock;
-    pOtaInterfaces->pal.activate = prvPAL_ActivateNewImage;
-    pOtaInterfaces->pal.closeFile = prvPAL_CloseFile;
-    pOtaInterfaces->pal.reset = prvPAL_ResetDevice;
-    pOtaInterfaces->pal.abort = prvPAL_Abort;
-    pOtaInterfaces->pal.createFile = prvPAL_CreateFileForRx;
+    pOtaInterfaces->pal.getPlatformImageState = otaPal_GetPlatformImageState;
+    pOtaInterfaces->pal.setPlatformImageState = otaPal_SetPlatformImageState;
+    pOtaInterfaces->pal.writeBlock = otaPal_WriteBlock;
+    pOtaInterfaces->pal.activate = otaPal_ActivateNewImage;
+    pOtaInterfaces->pal.closeFile = otaPal_CloseFile;
+    pOtaInterfaces->pal.reset = otaPal_ResetDevice;
+    pOtaInterfaces->pal.abort = otaPal_Abort;
+    pOtaInterfaces->pal.createFile = otaPal_CreateFileForRx;
 }
 
 static BaseType_t prvEstablishConnection( void )
