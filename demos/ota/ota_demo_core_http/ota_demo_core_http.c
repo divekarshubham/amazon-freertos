@@ -1457,11 +1457,11 @@ static int prvStartOTADemo( void )
  *
  * @return `EXIT_SUCCESS` if the demo completes successfully; `EXIT_FAILURE` otherwise.
  */
-int vStartOTAHTTPUpdateDemoTask( bool awsIotMqttMode,
-                             const char * pIdentifier,
-                             void * pNetworkServerInfo,
-                             void * pNetworkCredentialInfo,
-                             const IotNetworkInterface_t * pNetworkInterface )
+int RunOtaCoreHttpDemo( bool awsIotMqttMode,
+                        const char * pIdentifier,
+                        void * pNetworkServerInfo,
+                        void * pNetworkCredentialInfo,
+                        const IotNetworkInterface_t * pNetworkInterface )
 {
     /* Remove compiler warnings about unused parameters. */
     ( void ) awsIotMqttMode;

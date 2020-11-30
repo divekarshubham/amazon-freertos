@@ -109,9 +109,9 @@
 #elif defined( CONFIG_POSIX_DEMO_ENABLED )
     #define DEMO_entryFUNCTION              vStartPOSIXDemo
 #elif defined( CONFIG_OTA_MQTT_UPDATE_DEMO_ENABLED )
-    #define DEMO_entryFUNCTION              vStartOTAMQTTUpdateDemoTask
+    #define DEMO_entryFUNCTION              RunOtaCoreMqttDemo
 #elif defined( CONFIG_OTA_HTTP_UPDATE_DEMO_ENABLED )
-    #define DEMO_entryFUNCTION              vStartOTAHTTPUpdateDemoTask
+    #define DEMO_entryFUNCTION              RunOtaCoreHttpDemo
 #elif defined( CONFIG_BLE_GATT_SERVER_DEMO_ENABLED )
     #define DEMO_entryFUNCTION             vGattDemoSvcInit
     #if defined( democonfigNETWORK_TYPES )
