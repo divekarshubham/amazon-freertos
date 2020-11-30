@@ -134,7 +134,7 @@
 /**
  * @brief Transport timeout in milliseconds for transport send and receive.
  */
-#define otaexampleTRANSPORT_SEND_RECV_TIMEOUT_MS    ( 500U )
+#define otaexampleTRANSPORT_SEND_RECV_TIMEOUT_MS    ( 1000U )
 
 /**
  * @brief The maximum number of retries for network operation with server.
@@ -198,7 +198,7 @@
 /**
  * @brief OTA Library task stack size in words.
  */
-#define otaexampleSTACK_SIZE                        ( 1024U )
+#define otaexampleSTACK_SIZE                        ( 6000U )
 
 /**
  * @brief Milliseconds per second.
