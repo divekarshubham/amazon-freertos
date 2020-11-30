@@ -44,11 +44,11 @@ afr_module_dependencies(
 # coreMQTT demos can be downloaded.
 afr_module(NAME ota_demo_dependencies )
 
-afr_set_lib_metadata(ID "ota_demo_dependencies")
-afr_set_lib_metadata(DESCRIPTION "placeholder for ota")
-afr_set_lib_metadata(DISPLAY_NAME "OTA")
-afr_set_lib_metadata(CATEGORY "placeholder")
-afr_set_lib_metadata(VERSION "placeholder")
+afr_set_lib_metadata(ID "ota")
+afr_set_lib_metadata(DESCRIPTION "This library provides the interface to the over-the-air update agent, which allows devices to receive software updates securely via MQTT or HTTP.")
+afr_set_lib_metadata(DISPLAY_NAME "OTA Updates")
+afr_set_lib_metadata(CATEGORY "Amazon Services")
+afr_set_lib_metadata(VERSION "1.0.0")
 afr_set_lib_metadata(IS_VISIBLE "true")
 
 # Add cmake files of module to metadata.
