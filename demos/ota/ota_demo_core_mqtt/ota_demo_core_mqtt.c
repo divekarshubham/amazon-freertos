@@ -1085,7 +1085,7 @@ static int prvStartOTADemo( void )
  *
  * @return `EXIT_SUCCESS` if the demo completes successfully; `EXIT_FAILURE` otherwise.
  */
-int vStartOTAUpdateDemoTask( bool awsIotMqttMode,
+int vStartOTAMQTTUpdateDemoTask( bool awsIotMqttMode,
                              const char * pIdentifier,
                              void * pNetworkServerInfo,
                              void * pNetworkCredentialInfo,
