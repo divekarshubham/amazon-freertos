@@ -79,6 +79,7 @@ afr_module_dependencies(
     ${AFR_CURRENT_MODULE}
     PUBLIC
         AFR::ota
+        AFR::ota_demo_helpers
         AFR::core_mqtt_demo_dependencies
         AFR::core_http_demo_dependencies
         AFR::backoff_algorithm
