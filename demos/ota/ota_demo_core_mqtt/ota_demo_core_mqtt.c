@@ -296,12 +296,13 @@ static OtaAppBuffer_t otaBuffer =
 /**
  * @brief Struct for firmware version.
  */
-const AppVersion32_t appFirmwareVersion =
+/* This is a temporary change to enable building for now. */
+/* const AppVersion32_t appFirmwareVersion =
 {
     .u.x.major = APP_VERSION_MAJOR,
     .u.x.minor = APP_VERSION_MINOR,
     .u.x.build = APP_VERSION_BUILD,
-};
+}; */
 
 /*-----------------------------------------------------------*/
 
