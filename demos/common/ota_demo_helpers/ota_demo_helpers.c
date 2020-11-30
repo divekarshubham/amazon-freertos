@@ -20,19 +20,14 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/**
- * @file mqtt_subscription_manager.c
- * @brief Implementation of the API of a subscription manager for handling subscription callbacks
- * to topic filters in MQTT operations.
- */
-
 /* Standard includes. */
 #include <string.h>
 #include <assert.h>
 
-/* Include header for the subscription manager. */
-#include "mqtt_subscription_manager.h"
+/* Include header for OTA demo helper functions. */
+#include "ota_demo_helpers.h"
 
+/*-----------------------------------------------------------*/
 
 /**
  * @brief Represents a registered record of the topic filter and its associated callback

@@ -49,7 +49,6 @@
 
 /* MQTT library includes. */
 #include "core_mqtt.h"
-#include "mqtt_subscription_manager.h"
 
 /* Retry utilities include. */
 #include "backoff_algorithm.h"
@@ -78,6 +77,9 @@
 #include "ota_os_freertos.h"
 #include "ota_mqtt_interface.h"
 #include "ota_platform_interface.h"
+
+/* OTA Library demo helper functions. */
+#include "ota_demo_helpers.h"
 
 /* Include firmware version struct definition. */
 #include "ota_appversion32.h"

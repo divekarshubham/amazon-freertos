@@ -20,14 +20,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/**
- * @file mqtt_subscription_manager.h
- * @brief The API of a subscription manager for handling subscription callbacks
- * to topic filters in MQTT operations.
- */
-
-#ifndef MQTT_SUBSCRIPTION_MANAGER_H_
-#define MQTT_SUBSCRIPTION_MANAGER_H_
+#ifndef OTA_DEMO_HELPERS_H_
+#define OTA_DEMO_HELPERS_H_
 
 /**************************************************/
 /******* DO NOT CHANGE the following order ********/
@@ -140,4 +134,4 @@ void SubscriptionManager_RemoveCallback( const char * pTopicFilter,
                                          uint16_t topicFilterLength );
 
 
-#endif /* ifndef MQTT_SUBSCRIPTION_MANAGER_H_ */
+#endif /* ifndef OTA_DEMO_HELPERS_H_ */
