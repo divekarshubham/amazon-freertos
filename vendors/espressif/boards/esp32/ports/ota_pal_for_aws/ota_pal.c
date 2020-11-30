@@ -570,7 +570,7 @@ OtaErr_t otaPal_ActivateNewImage( OtaFileContext_t * const C )
 }
 
 /* Write a block of data to the specified file. */
-int16_t prvPAL_WriteBlock( OtaFileContext_t * const C,
+int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
                            uint32_t iOffset,
                            uint8_t * const pacData,
                            uint32_t iBlockSize )
