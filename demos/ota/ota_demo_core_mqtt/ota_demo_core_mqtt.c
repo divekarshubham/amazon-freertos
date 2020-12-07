@@ -354,7 +354,6 @@ typedef enum OtaMessageType
     OtaNumOfMessageType
 }OtaMessageType_t;
 
-static SubscriptionManagerCallback_t otaMessageCallback[ OtaNumOfMessageType ] = { mqttJobCallback, mqttDataCallback };
 /**
  * @brief Struct for firmware version.
  */
@@ -883,7 +882,8 @@ static void mqttJobCallback( MQTTContext_t * pContext,
         LogError( ( "Error: No OTA data buffers available.\r\n" ) );
     }
 }
-
+/*-----------------------------------------------------------*/
+static SubscriptionManagerCallback_t otaMessageCallback[ OtaNumOfMessageType ] = { mqttJobCallback, mqttDataCallback };
 /*-----------------------------------------------------------*/
 
 static OtaErr_t mqttSubscribe( const char * pTopicFilter,
