@@ -39,6 +39,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* Include common demo header. */
 #include "aws_demo.h"
@@ -1572,7 +1573,7 @@ static int prvStartOTADemo( void )
     {
        /* Wait till OTA library is stopped, output statistics for currently running
          * OTA job */
-        while( ( ( state = OTA_GetAgentState() ) != OtaAgentStateStopped ) )
+        while( ( ( state = OTA_GetState() ) != OtaAgentStateStopped ) )
         {
             if( xIsConnectionEstablished != pdTRUE )
             {

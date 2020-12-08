@@ -39,6 +39,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* Include common demo header. */
 #include "aws_demo.h"
