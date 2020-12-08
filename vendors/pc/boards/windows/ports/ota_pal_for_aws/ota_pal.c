@@ -32,7 +32,6 @@
 #include "ota.h"
 #include "ota_private.h"
 
-#include "aws_ota_codesigner_certificate.h"
 #include "ota_pal.h"
 
 /* Specify the OTA signature algorithm we support on this platform. */
