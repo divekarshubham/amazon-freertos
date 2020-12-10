@@ -57,6 +57,18 @@
 /************ End of logging configuration ****************/
 
 /**
+ * @brief OTA Stack size.
+ * 
+ */
+#define otaconfigSTACK_SIZE 6000U
+
+/**
+ * @brief OTA Agent Priority.
+ * 
+ */
+#define otaconfigAGENT_PRIORITY tskIDLE_PRIORITY + 5U
+
+/**
  * @brief Log base 2 of the size of the file data block message (excluding the header).
  *
  * 10 bits yields a data block size of 1KB.

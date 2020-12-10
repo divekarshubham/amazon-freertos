@@ -1,3 +1,4 @@
+# OTA demo module.
 afr_demo_module(ota_core_mqtt)
 
 # Set the default demo that is enabled in the downloaded package.

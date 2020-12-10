@@ -110,8 +110,24 @@
     #define DEMO_entryFUNCTION              vStartPOSIXDemo
 #elif defined( CONFIG_OTA_MQTT_UPDATE_DEMO_ENABLED )
     #define DEMO_entryFUNCTION              RunOtaCoreMqttDemo
+    #if defined( otaconfigSTACK_SIZE )
+        #undef democonfigDEMO_STACKSIZE
+        #define democonfigDEMO_STACKSIZE    otaconfigSTACK_SIZE
+    #endif
+    #if defined( otaconfigAGENT_PRIORITY )
+        #undef democonfigDEMO_PRIORITY
+        #define democonfigDEMO_PRIORITY     otaconfigAGENT_PRIORITY
+    #endif
 #elif defined( CONFIG_OTA_HTTP_UPDATE_DEMO_ENABLED )
     #define DEMO_entryFUNCTION              RunOtaCoreHttpDemo
+    #if defined( otaconfigSTACK_SIZE )
+        #undef democonfigDEMO_STACKSIZE
+        #define democonfigDEMO_STACKSIZE    otaconfigSTACK_SIZE
+    #endif
+    #if defined( otaconfigAGENT_PRIORITY )
+        #undef democonfigDEMO_PRIORITY
+        #define democonfigDEMO_PRIORITY     otaconfigAGENT_PRIORITY
+    #endif
 #elif defined( CONFIG_BLE_GATT_SERVER_DEMO_ENABLED )
     #define DEMO_entryFUNCTION             vGattDemoSvcInit
     #if defined( democonfigNETWORK_TYPES )
