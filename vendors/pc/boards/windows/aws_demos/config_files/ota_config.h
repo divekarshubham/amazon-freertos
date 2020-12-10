@@ -58,7 +58,7 @@
  *
  * 10 bits yields a data block size of 1KB.
  */
-#define otaconfigLOG2_FILE_BLOCK_SIZE          10UL
+#define otaconfigLOG2_FILE_BLOCK_SIZE          12UL
 
 /**
  * @brief Milliseconds to wait for the self test phase to succeed before we force reset.
@@ -95,7 +95,7 @@
  *  Please note that this must be set larger than zero.
  *
  */
-#define otaconfigMAX_NUM_BLOCKS_REQUEST        1U
+#define otaconfigMAX_NUM_BLOCKS_REQUEST        2U
 
 /**
  * @brief The maximum number of requests allowed to send without a response before we abort.
@@ -112,7 +112,7 @@
  * This configurations parameter sets the maximum number of static data buffers used by
  * the OTA agent for job and file data blocks received.
  */
-#define otaconfigMAX_NUM_OTA_DATA_BUFFERS      1U
+#define otaconfigMAX_NUM_OTA_DATA_BUFFERS      4U
 
 /**
  * @brief Allow update to same or lower version.
@@ -146,7 +146,7 @@
  * Enable data over HTTP - ( OTA_DATA_OVER_HTTP)
  * Enable data over both MQTT & HTTP ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP )
  */
-#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_HTTP )
+#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT )
 
 /**
  * @brief The preferred protocol selected for OTA data operations.
@@ -158,6 +158,6 @@
  * Note - use OTA_DATA_OVER_HTTP for HTTP as primary data protocol.
  */
 
-#define configOTA_PRIMARY_DATA_PROTOCOL    ( OTA_DATA_OVER_HTTP )
+#define configOTA_PRIMARY_DATA_PROTOCOL    ( OTA_DATA_OVER_MQTT )
 
 #endif /* OTA_CONFIG_H_ */

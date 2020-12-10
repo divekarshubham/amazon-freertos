@@ -158,7 +158,7 @@
 /**
  * @brief Size of the network buffer for MQTT packets.
  */
-#define otaexampleNETWORK_BUFFER_SIZE               ( 2048U )
+#define otaexampleNETWORK_BUFFER_SIZE               ( 5120U )
 
 /**
  * @brief The maximum size of the file paths used in the demo.
@@ -181,33 +181,38 @@
  * @brief The timeout for waiting for the agent to get suspended after closing the
  * connection.
  */
-#define OTA_SUSPEND_TIMEOUT_MS                   ( 5000 )
+#define OTA_SUSPEND_TIMEOUT_MS                      ( 5000 )
 
 /**
  * @brief The delay used in the main OTA Demo task loop to periodically output the OTA
  * statistics like number of packets received, dropped, processed and queued per connection.
  */
-#define OTA_EXAMPLE_TASK_DELAY_MS                ( 1000U )
+#define OTA_EXAMPLE_TASK_DELAY_MS                   ( 500U )
+
+/*
+ * @brief Run OTA agent at equal or higher priority as that of demo polling task.
+ */
+#define OTA_AGENT_TASK_PRIORITY                     ( configMAX_PRIORITIES - 1 )
 
 /**
  * @brief The common prefix for all OTA topics.
  */
-#define OTA_TOPIC_PREFIX      "$aws/things/"
+#define OTA_TOPIC_PREFIX                            "$aws/things/"
 
 /**
  * @brief The string used for jobs topics.
  */
-#define OTA_TOPIC_JOBS      "jobs"
+#define OTA_TOPIC_JOBS                              "jobs"
 
 /**
  * @brief The string used for streaming service topics.
  */
-#define OTA_TOPIC_STREAM     "streams"
+#define OTA_TOPIC_STREAM                            "streams"
 
 /**
  * @brief The length of #OTA_TOPIC_PREFIX
  */
-#define OTA_TOPIC_PREFIX_LENGTH     ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
+#define OTA_TOPIC_PREFIX_LENGTH                     ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
 
 /**
  * @brief Keep alive time reported to the broker while establishing
@@ -247,7 +252,7 @@
 /**
  * @brief Ticks to wait till we obtain lock on semaphore.
  */
-#define DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR                    ( ( TickType_t ) 10 )
+#define DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR            ( pdMS_TO_TICKS( 2 * otaexampleTASK_DELAY_MS ) )
 
 /**
  * @brief Configure application version.
@@ -308,6 +313,11 @@ static SemaphoreHandle_t xMqttMutex;
 static SemaphoreHandle_t xBufferSemaphore;
 
 /**
+ * @brief Semaphore for acknowledgment from MQTT packet.
+ */
+static SemaphoreHandle_t xMqttAckSem;
+
+/**
  * @brief Static buffer used to hold MQTT messages being sent and received.
  */
 static uint8_t ucSharedBuffer[ otaexampleNETWORK_BUFFER_SIZE ];
@@ -353,7 +363,7 @@ typedef enum OtaMessageType
     OtaMessageTypeJob = 0,
     OtaMessageTypeStream,
     OtaNumOfMessageType
-}OtaMessageType_t;
+} OtaMessageType_t;
 
 /**
  * @brief Struct for firmware version.
@@ -364,11 +374,11 @@ const AppVersion32_t appFirmwareVersion =
     .u.x.major = APP_VERSION_MAJOR,
     .u.x.minor = APP_VERSION_MINOR,
     .u.x.build = APP_VERSION_BUILD,
-}; 
+};
 
 /*-----------------------------------------------------------*/
 
-static OtaMessageType_t getOtaMessageType( const char * pTopicFilter, 
+static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
                                            uint16_t topicFilterLength )
 {
     int retStatus = EXIT_FAILURE;
@@ -383,7 +393,7 @@ static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
         OTA_TOPIC_STREAM
     };
 
-   /* Check topic prefix is valid.*/
+    /* Check topic prefix is valid.*/
     if( strncmp( pTopicFilter, OTA_TOPIC_PREFIX, ( size_t ) OTA_TOPIC_PREFIX_LENGTH ) == 0 )
     {
         stringIndex = OTA_TOPIC_PREFIX_LENGTH;
@@ -412,8 +422,8 @@ static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
         if( fieldLength > 0 )
         {
             /* Check thing name.*/
-            if( strncmp( &pTopicFilter[stringIndex - fieldLength], 
-                         democonfigCLIENT_IDENTIFIER, 
+            if( strncmp( &pTopicFilter[ stringIndex - fieldLength ],
+                         democonfigCLIENT_IDENTIFIER,
                          ( size_t ) ( fieldLength ) ) == 0 )
             {
                 stringIndex++;
@@ -439,28 +449,25 @@ static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
             {
                 fieldLength++;
             }
-
         }
 
         if( fieldLength > 0 )
         {
-
             for( i = 0; i < OtaNumOfMessageType; i++ )
             {
                 /* check thing name.*/
-                if( strncmp( &pTopicFilter[stringIndex - fieldLength], 
-                             pOtaMessageStrings[ i ], 
+                if( strncmp( &pTopicFilter[ stringIndex - fieldLength ],
+                             pOtaMessageStrings[ i ],
                              ( size_t ) ( fieldLength ) ) == 0 )
                 {
                     break;
                 }
             }
 
-            if( i < OtaNumOfMessageType ) 
+            if( i < OtaNumOfMessageType )
             {
-                 retMesageType = i;
+                retMesageType = i;
             }
-
         }
     }
 
@@ -468,6 +475,7 @@ static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
 }
 
 /*-----------------------------------------------------------*/
+
 /**
  * @brief Connect to MQTT broker with reconnection retries.
  *
@@ -542,10 +550,12 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
         {
             case MQTT_PACKET_TYPE_SUBACK:
                 LogInfo( ( "Received SUBACK.\n\n" ) );
+                xSemaphoreGive( xMqttAckSem );
                 break;
 
             case MQTT_PACKET_TYPE_UNSUBACK:
                 LogInfo( ( "Received UNSUBACK.\n\n" ) );
+                xSemaphoreGive( xMqttAckSem );
                 break;
 
             case MQTT_PACKET_TYPE_PINGRESP:
@@ -559,6 +569,7 @@ static void prvEventCallback( MQTTContext_t * pxMQTTContext,
             case MQTT_PACKET_TYPE_PUBACK:
                 LogInfo( ( "PUBACK received for packet id %u.\n\n",
                            pxDeserializedInfo->packetIdentifier ) );
+                xSemaphoreGive( xMqttAckSem );
                 break;
 
             /* Any other packet type is invalid. */
@@ -647,22 +658,20 @@ static BaseType_t prvCreateMQTTConnectionWithBroker( MQTTContext_t * pxMQTTConte
      * the keep-alive period, the MQTT library will send PINGREQ packets. */
     xConnectInfo.keepAliveSeconds = otaexampleKEEP_ALIVE_TIMEOUT_SECONDS;
 
-    
-
     if( xSemaphoreTake( xMqttMutex, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
     {
         /* Send MQTT CONNECT packet to broker. LWT is not used in this demo, so it
-        * is passed as NULL. */
+         * is passed as NULL. */
         xResult = MQTT_Connect( pxMQTTContext,
-                            &xConnectInfo,
-                            NULL,
-                            otaexampleCONNACK_RECV_TIMEOUT_MS,
-                            &xSessionPresent );
+                                &xConnectInfo,
+                                NULL,
+                                otaexampleCONNACK_RECV_TIMEOUT_MS,
+                                &xSessionPresent );
         xSemaphoreGive( xMqttMutex );
     }
     else
     {
-        LogError( ( "Failed to acquire mqtt mutex for executing MQTT_Subscribe" ) );
+        LogError( ( "Failed to acquire mqtt mutex for executing MQTT_Connect." ) );
     }
 
     if( xResult != MQTTSuccess )
@@ -918,7 +927,6 @@ static OtaErr_t mqttSubscribe( const char * pTopicFilter,
                                      pSubscriptionList,
                                      sizeof( pSubscriptionList ) / sizeof( MQTTSubscribeInfo_t ),
                                      MQTT_GetPacketId( pMqttContext ) );
-
         xSemaphoreGive( xMqttMutex );
     }
     else
@@ -935,23 +943,35 @@ static OtaErr_t mqttSubscribe( const char * pTopicFilter,
     }
     else
     {
-        LogInfo( ( "SUBSCRIBE topic %.*s to broker.\n\n",
-                   topicFilterLength,
-                   pTopicFilter ) );
-
+        if( xSemaphoreTake( xMqttAckSem, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
+        {
+            LogInfo( ( "SUBSCRIBED to topic %.*s to broker.\n\n",
+                       topicFilterLength,
+                       pTopicFilter ) );
+        }
+        else
+        {
+            LogError( ( "Failed to receive suback for topic %.*s.\n\n",
+                        topicFilterLength,
+                        pTopicFilter ) );
+            otaRet = OtaMqttSubscribeFailed;
+        }
     }
 
-    otaMessageType = getOtaMessageType( pTopicFilter, topicFilterLength );
-
-    assert( ( otaMessageType >= 0 ) && ( otaMessageType < OtaNumOfMessageType ) );
-
-    /* Register callback to subscription manager. */
-    subscriptionStatus = SubscriptionManager_RegisterCallback( pTopicFilter, topicFilterLength, otaMessageCallback[otaMessageType] );
-
-    if( subscriptionStatus != SUBSCRIPTION_MANAGER_SUCCESS )
+    if( otaRet == OtaMqttSuccess )
     {
-        LogWarn( ( "Failed to register a callback to subscription manager with error = %d.",
-                   subscriptionStatus ) );
+        otaMessageType = getOtaMessageType( pTopicFilter, topicFilterLength );
+
+        assert( ( otaMessageType >= 0 ) && ( otaMessageType < OtaNumOfMessageType ) );
+
+        /* Register callback to subscription manager. */
+        subscriptionStatus = SubscriptionManager_RegisterCallback( pTopicFilter, topicFilterLength, otaMessageCallback[ otaMessageType ] );
+
+        if( subscriptionStatus != SUBSCRIPTION_MANAGER_SUCCESS )
+        {
+            LogWarn( ( "Failed to register a callback to subscription manager with error = %d.",
+                       subscriptionStatus ) );
+        }
     }
 
     return otaRet;
@@ -978,12 +998,11 @@ static OtaErr_t mqttPublish( const char * const pacTopic,
     publishInfo.pPayload = pMsg;
     publishInfo.payloadLength = msgSize;
 
-    if( xSemaphoreTake( xMqttMutex, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE  )
+    if( xSemaphoreTake( xMqttMutex, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
     {
         mqttStatus = MQTT_Publish( pMqttContext,
                                    &publishInfo,
                                    MQTT_GetPacketId( pMqttContext ) );
-
         xSemaphoreGive( xMqttMutex );
     }
     else
@@ -999,10 +1018,20 @@ static OtaErr_t mqttPublish( const char * const pacTopic,
     }
     else
     {
-        LogInfo( ( "Sent PUBLISH packet to broker %.*s to broker.\n\n",
-                   topicLen,
-                   pacTopic ) );
-
+        if( ( qos != MQTTQoS0 ) &&
+            ( xSemaphoreTake( xMqttAckSem, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) != pdTRUE ) )
+        {
+            LogError( ( "Failed to get PUBACK packet for topic %.*s from broker.\n\n",
+                        topicLen,
+                        pacTopic ) );
+            otaRet = OtaMqttPublishFailed;
+        }
+        else
+        {
+            LogInfo( ( "Sent PUBLISH packet to broker %.*s to broker.\n\n",
+                       topicLen,
+                       pacTopic ) );
+        }
     }
 
     return otaRet;
@@ -1051,9 +1080,19 @@ static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
     }
     else
     {
-        LogInfo( ( "SUBSCRIBE topic %.*s to broker.\n\n",
-                   topicFilterLength,
-                   pTopicFilter ) );
+        if( xSemaphoreTake( xMqttAckSem, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
+        {
+            LogInfo( ( "SUBSCRIBE topic %.*s to broker.\n\n",
+                       topicFilterLength,
+                       pTopicFilter ) );
+        }
+        else
+        {
+            LogError( ( "Failed to get unsuback for topic %.*s.\n\n",
+                        topicFilterLength,
+                        pTopicFilter ) );
+            otaRet = OtaMqttUnsubscribeFailed;
+        }
     }
 
     return otaRet;
@@ -1181,9 +1220,9 @@ static int prvStartOTADemo( void )
     /****************************** Init OTA Library. ******************************/
 
     if( ( otaRet = OTA_Init( &otaBuffer,
-                                  &otaInterfaces,
-                                  ( const uint8_t * ) ( democonfigCLIENT_IDENTIFIER ),
-                                  otaAppCallback ) ) != OtaErrNone )
+                             &otaInterfaces,
+                             ( const uint8_t * ) ( democonfigCLIENT_IDENTIFIER ),
+                             otaAppCallback ) ) != OtaErrNone )
     {
         LogError( ( "Failed to initialize OTA Agent, exiting = %u.",
                     otaRet ) );
@@ -1199,7 +1238,7 @@ static int prvStartOTADemo( void )
                                   "OTA Agent Task",
                                   otaexampleSTACK_SIZE,
                                   NULL,
-                                  tskIDLE_PRIORITY,
+                                  OTA_AGENT_TASK_PRIORITY,
                                   &xOtaTaskHandle ) ) != pdPASS )
         {
             LogError( ( "Failed to start OTA task: "
@@ -1245,16 +1284,20 @@ static int prvStartOTADemo( void )
                 /* Acquire the mqtt mutex lock. */
                 if( xSemaphoreTake( xMqttMutex, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
                 {
+                    /*LogInfo(("Acquired semaphore for process loop.")); */
                     /* Loop to receive packet from transport interface. */
                     mqttStatus = MQTT_ProcessLoop( &xMQTTContext, otaexampleTASK_DELAY_MS );
 
                     xSemaphoreGive( xMqttMutex );
+
+                    /*taskYIELD(); */
+
+                    /*LogInfo(("Released semaphore for process loop.")); */
                 }
                 else
                 {
-                    LogError( ( "Failed to acquire mutex to execute process loop") );
+                    LogError( ( "Failed to acquire mutex to execute process loop" ) );
                 }
-                
 
                 if( mqttStatus == MQTTSuccess )
                 {
@@ -1265,7 +1308,7 @@ static int prvStartOTADemo( void )
                                otaStatistics.otaPacketsReceived,
                                otaStatistics.otaPacketsQueued,
                                otaStatistics.otaPacketsProcessed,
-                               otaStatistics.otaPacketsDropped  ) );
+                               otaStatistics.otaPacketsDropped ) );
                 }
                 else
                 {
@@ -1279,7 +1322,7 @@ static int prvStartOTADemo( void )
 
                     /* Suspend OTA operations. */
                     otaRet = OTA_Suspend();
-                    
+
                     if( otaRet == OtaErrNone )
                     {
                         xSuspendTimeout = OTA_SUSPEND_TIMEOUT_MS;
@@ -1287,7 +1330,7 @@ static int prvStartOTADemo( void )
                         while( ( ( state = OTA_GetState() ) != OtaAgentStateSuspended ) && ( xSuspendTimeout > 0 ) )
                         {
                             /* Wait for OTA Library state to suspend */
-                            vTaskDelay( pdMS_TO_TICKS(OTA_EXAMPLE_TASK_DELAY_MS) );
+                            vTaskDelay( pdMS_TO_TICKS( OTA_EXAMPLE_TASK_DELAY_MS ) );
                             xSuspendTimeout -= OTA_EXAMPLE_TASK_DELAY_MS;
                         }
                     }
@@ -1338,14 +1381,16 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
     ( void ) pNetworkInterface;
 
     /* Return error status. */
-    int32_t returnStatus = EXIT_FAILURE;
+    int32_t returnStatus = EXIT_SUCCESS;
 
     /* Semaphore initialization flag. */
     bool xBufferSemInitialized = false;
     bool xMqttMutexInitialized = false;
+    bool xMqttAckSemInitialized = false;
 
     /* Initialize semaphore for buffer operations. */
     xBufferSemaphore = xSemaphoreCreateBinary();
+
     if( xBufferSemaphore == NULL )
     {
         LogError( ( "Failed to initialize buffer semaphore." ) );
@@ -1359,6 +1404,7 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
 
     /* Initialize mutex for coreMQTT APIs. */
     xMqttMutex = xSemaphoreCreateMutex();
+
     if( xMqttMutex == NULL )
     {
         LogError( ( "Failed to initialize mutex for mqtt apis" ) );
@@ -1369,9 +1415,24 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
     {
         xMqttMutexInitialized = true;
     }
-    //TODO: initialize mqtt.
+
+    /* Initialize mutex for coreMQTT APIs. */
+    xMqttAckSem = xSemaphoreCreateBinary();
+
+    if( xMqttAckSem == NULL )
+    {
+        LogError( ( "Failed to initialize semaphore for MQTT acknowledgments." ) );
+
+        returnStatus = EXIT_FAILURE;
+    }
+    else
+    {
+        xMqttAckSemInitialized = true;
+    }
+
+    /*TODO: initialize mqtt. */
     /************************* Start OTA demo. ****************************/
-    
+
     if( returnStatus == EXIT_SUCCESS )
     {
         /* Start OTA demo. */
@@ -1381,13 +1442,18 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
     if( xBufferSemInitialized == true )
     {
         /* Cleanup semaphore created for buffer operations. */
-        vSemaphoreDelete(xBufferSemaphore);
+        vSemaphoreDelete( xBufferSemaphore );
     }
 
     if( xMqttMutexInitialized == true )
     {
         /* Cleanup mutex created for MQTT operations. */
-        vSemaphoreDelete(xMqttMutex);
+        vSemaphoreDelete( xMqttMutex );
+    }
+
+    if( xMqttAckSemInitialized == true )
+    {
+        vSemaphoreDelete( xMqttAckSem );
     }
 
     return returnStatus;
