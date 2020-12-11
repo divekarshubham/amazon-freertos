@@ -181,7 +181,7 @@
  * @brief The delay used in the main OTA Demo task loop to periodically output the OTA
  * statistics like number of packets received, dropped, processed and queued per connection.
  */
-#define otaexampleTASK_DELAY_MS                     ( 1000UL )
+#define otaexampleTASK_DELAY_MS                     ( 500UL )
 
 /**
  * @brief Keep alive time reported to the broker while establishing
@@ -218,6 +218,11 @@
  */
 #define MILLISECONDS_PER_TICK                       ( MILLISECONDS_PER_SECOND / configTICK_RATE_HZ )
 
+ /*
+  * @brief Run OTA agent at equal or higher priority as that of demo polling task.
+  */
+#define OTA_AGENT_TASK_PRIORITY                     ( configMAX_PRIORITIES - 1 )
+
 /**
  * @brief OTA example max host address size.
  */
@@ -242,10 +247,15 @@ static char cServerHost[ otaexampleMAX_HOST_ADDR_SIZE ];
  */
 static size_t xServerHostLength;
 
-/* Check that size of the user buffer is defined. */
-#ifndef USER_BUFFER_LENGTH
-    #define USER_BUFFER_LENGTH    ( 4096 )
-#endif
+
+/**
+ * @brief The maximum size of the HTTP header.
+ */
+#define HTTP_HEADER_SIZE_MAX             ( 1024U )
+
+
+/* HTTP buffers used for http request and response. */
+#define HTTP_USER_BUFFER_LENGTH          ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
 
 /**
  * @brief A buffer used in the demo for storing HTTP request headers and
@@ -255,7 +265,7 @@ static size_t xServerHostLength;
  * response after the HTTP request is sent out. However, the user can also
  * decide to use separate buffers for storing the HTTP request and response.
  */
-static uint8_t userBuffer[ USER_BUFFER_LENGTH ];
+static uint8_t httpUserBuffer[HTTP_USER_BUFFER_LENGTH];
 
 /**
  * @brief Configure application version.
@@ -298,10 +308,20 @@ static uint8_t userBuffer[ USER_BUFFER_LENGTH ];
  */
 #define OTA_TOPIC_PREFIX_LENGTH     ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
 
+ /**
+  * @brief HTTP response codes used in this demo.
+  */
+#define HTTP_RESPONSE_PARTIAL_CONTENT    ( 206 )
+#define HTTP_RESPONSE_BAD_REQUEST        ( 400 )
+#define HTTP_RESPONSE_FORBIDDEN          ( 403 )
+#define HTTP_RESPONSE_NOT_FOUND          ( 404 )
+
+
+
 /**
  * @brief Ticks to wait till we obtain lock on semaphore.
  */
-#define DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR                    ( ( TickType_t ) 10 )
+#define DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR                    ( pdMS_TO_TICKS( otaexampleTASK_DELAY_MS * 2 ) )
 
 
 /**
@@ -370,7 +390,7 @@ uint8_t bitmap[ OTA_MAX_BLOCK_BITMAP_SIZE ];
 /**
  * @brief Event buffer.
  */
-static OtaEventData_t eventBuffer;
+static OtaEventData_t eventBuffer[ otaconfigMAX_NUM_OTA_DATA_BUFFERS ];
 
 /**
  * @brief Static handle for MQTT context.
@@ -469,6 +489,15 @@ typedef enum OtaMessageType
 
 /*-----------------------------------------------------------*/
 
+
+/**
+ * @brief Handle HTTP response.
+ *
+ * @param[in] pResponse Pointer to http response buffer.
+ * @return OtaHttpStatus_t OtaHttpSuccess if success or failure code otherwise.
+ */
+static OtaHttpStatus_t handleHttpResponse(const HTTPResponse_t* pResponse);
+
 /**
  * @brief Connect to MQTT broker with reconnection retries.
  *
@@ -518,6 +547,53 @@ static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
                                  uint8_t qos );
 
 /*-----------------------------------------------------------*/
+
+static void otaEventBufferFree(OtaEventData_t* const pxBuffer)
+{
+    if (xSemaphoreTake( xBufferSemaphore, portMAX_DELAY ) == pdTRUE)
+    {
+        pxBuffer->bufferUsed = false;
+        (void)xSemaphoreGive( xBufferSemaphore );
+    }
+    else
+    {
+        LogError(("Failed to get buffer semaphore: "
+            ",errno=%s",
+            strerror(errno)));
+    }
+}
+
+/*-----------------------------------------------------------*/
+
+static OtaEventData_t* otaEventBufferGet(void)
+{
+    uint32_t ulIndex = 0;
+    OtaEventData_t* pFreeBuffer = NULL;
+
+    if (xSemaphoreTake(xBufferSemaphore, portMAX_DELAY) == pdTRUE)
+    {
+        for (ulIndex = 0; ulIndex < otaconfigMAX_NUM_OTA_DATA_BUFFERS; ulIndex++)
+        {
+            if (eventBuffer[ulIndex].bufferUsed == false)
+            {
+                eventBuffer[ulIndex].bufferUsed = true;
+                pFreeBuffer = &eventBuffer[ulIndex];
+                break;
+            }
+        }
+
+        (void)xSemaphoreGive(xBufferSemaphore);
+    }
+    else
+    {
+        LogError(("Failed to get buffer semaphore: "
+            ",errno=%s",
+            strerror(errno)));
+    }
+
+    return pFreeBuffer;
+}
+
 
 static void prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
@@ -876,7 +952,7 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
  * MQTT server. Set this to `false` if using another MQTT server.
  * @return None.
  */
-static void otaAppCallback( OtaJobEvent_t event )
+static void otaAppCallback( OtaJobEvent_t event, const void* pData )
 {
     OtaErr_t err = OtaErrUninitialized;
 
@@ -891,12 +967,10 @@ static void otaAppCallback( OtaJobEvent_t event )
         /* Activate the new firmware image. */
         OTA_ActivateNewImage();
 
-        /* We should never get here as new image activation must reset the device.*/
-        LogError( ( "New image activation failed." ) );
+        /* Shutdown OTA Agent. */
+        OTA_Shutdown(0);
 
-        for( ; ; )
-        {
-        }
+        LogError( ( "New image activation failed." ) );
     }
     else if( event == OtaJobEventFail )
     {
@@ -920,6 +994,15 @@ static void otaAppCallback( OtaJobEvent_t event )
             LogError( ( " Error! Failed to set image state as accepted." ) );
         }
     }
+    else if (event == OtaJobEventProcessed)
+    {
+        LogDebug(("Received OtaJobEventProcessed callback from OTA Agent."));
+
+        if (pData != NULL)
+        {
+            otaEventBufferFree((OtaEventData_t*)pData);
+        }
+    }
 }
 
 /*-----------------------------------------------------------*/
@@ -935,7 +1018,7 @@ static void mqttDataCallback( MQTTContext_t * pContext,
 
     LogInfo( ( "Received data message callback, size %d.\n\n", pPublishInfo->payloadLength ) );
 
-    pData = &eventBuffer;
+    pData = otaEventBufferGet();
 
     if( pData != NULL )
     {
@@ -966,7 +1049,7 @@ static void mqttJobCallback( MQTTContext_t * pContext,
 
     LogInfo( ( "Received job message callback, size %d.\n\n", pPublishInfo->payloadLength ) );
 
-    pData = &eventBuffer;
+    pData = otaEventBufferGet();
 
     if( pData != NULL )
     {
@@ -1158,6 +1241,63 @@ static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
     return otaRet;
 }
 
+static OtaHttpStatus_t handleHttpResponse(const HTTPResponse_t* pResponse)
+{
+    /* Return error code. */
+    OtaHttpStatus_t ret = OtaHttpRequestFailed;
+
+    OtaEventData_t* pData;
+    OtaEventMsg_t eventMsg = { 0 };
+
+    switch (pResponse->statusCode)
+    {
+    case HTTP_RESPONSE_PARTIAL_CONTENT:
+        /* Get buffer to send event & data. */
+        pData = otaEventBufferGet();
+
+        if (pData != NULL)
+        {
+            /* Get the data from response buffer. */
+            memcpy(pData->data, pResponse->pBody, pResponse->bodyLen);
+            pData->dataLength = pResponse->bodyLen;
+
+            /* Send job document received event. */
+            eventMsg.eventId = OtaAgentEventReceivedFileBlock;
+            eventMsg.pEventData = pData;
+            OTA_SignalEvent(&eventMsg);
+
+            ret = OtaHttpSuccess;
+        }
+        else
+        {
+            LogError(("Error: No OTA data buffers available."));
+
+            ret = OtaHttpRequestFailed;
+        }
+
+        break;
+
+    case HTTP_RESPONSE_BAD_REQUEST:
+    case HTTP_RESPONSE_FORBIDDEN:
+    case HTTP_RESPONSE_NOT_FOUND:
+        /* Request the job document to get new url. */
+        eventMsg.eventId = OtaAgentEventRequestJobDocument;
+        eventMsg.pEventData = NULL;
+        OTA_SignalEvent(&eventMsg);
+
+        ret = OtaHttpSuccess;
+        break;
+
+    default:
+        LogError(("Unhandled http response code: =%d.",
+            pResponse->statusCode));
+
+        ret = OtaHttpRequestFailed;
+    }
+
+    return ret;
+}
+
 static BaseType_t prvConnectToServer( NetworkContext_t * pxNetworkContext,
                                       const char * pUrl )
 {
@@ -1309,9 +1449,6 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
     /* OTA lib return error code. */
     OtaHttpStatus_t ret = OtaHttpSuccess;
 
-    OtaEventData_t * pData = &eventBuffer;
-    OtaEventMsg_t eventMsg = { 0 };
-
     /* Configurations of the initial request headers that are passed to
      * #HTTPClient_InitializeRequestHeaders. */
     HTTPRequestInfo_t requestInfo;
@@ -1322,6 +1459,10 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
 
     /* Return value of all methods from the HTTP Client library API. */
     HTTPStatus_t httpStatus = HTTPSuccess;
+
+    /* Reconnection required flag. */
+    bool reconnectRequired = false;
+
 
     /* Initialize all HTTP Client library API structs to 0. */
     ( void ) memset( &requestInfo, 0, sizeof( requestInfo ) );
@@ -1341,8 +1482,8 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
     requestInfo.reqFlags = HTTP_REQUEST_KEEP_ALIVE_FLAG;
 
     /* Set the buffer used for storing request headers. */
-    requestHeaders.pBuffer = userBuffer;
-    requestHeaders.bufferLen = USER_BUFFER_LENGTH;
+    requestHeaders.pBuffer = httpUserBuffer;
+    requestHeaders.bufferLen = HTTP_USER_BUFFER_LENGTH;
 
     httpStatus = HTTPClient_InitializeRequestHeaders( &requestHeaders,
                                                       &requestInfo );
@@ -1353,8 +1494,8 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
     {
         /* Initialize the response object. The same buffer used for storing
          * request headers is reused here. */
-        response.pBuffer = userBuffer;
-        response.bufferLen = USER_BUFFER_LENGTH;
+        response.pBuffer = httpUserBuffer;
+        response.bufferLen = HTTP_USER_BUFFER_LENGTH;
 
         /* Send the request and receive the response. */
         httpStatus = HTTPClient_Send( &xTransportInterfaceHttp,
@@ -1372,33 +1513,48 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
 
     if( httpStatus != HTTPSuccess )
     {
-        if( httpStatus == HTTPNetworkError )
-        {
-            /* Reconnect to server. */
-            prvConnectToServer( &xNetworkContextHttp, NULL );
 
-            /* Send job document request event. */
-            eventMsg.eventId = OtaAgentEventRequestFileBlock;
-            OTA_SignalEvent( &eventMsg );
+        if( httpStatus == HTTPNoResponse )
+        {
+            reconnectRequired = true;
         }
         else
         {
+            LogError(("HTTPClient_Send failed: Error=%s.",
+                HTTPClient_strerror(httpStatus)));
             ret = OtaHttpRequestFailed;
         }
     }
     else
     {
-        /* Get the data from response buffer. */
-        memcpy( pData->data, response.pBody, response.bodyLen );
-        pData->dataLength = response.bodyLen;
+        /* Check if reconnection required. */
+        if (response.respFlags & HTTP_RESPONSE_CONNECTION_CLOSE_FLAG)
+        {
+            reconnectRequired = true;
+        }
 
-        /* Send job document received event. */
-        eventMsg.eventId = OtaAgentEventReceivedFileBlock;
-        eventMsg.pEventData = pData;
-        OTA_SignalEvent( &eventMsg );
-
-        ret = OtaHttpSuccess;
+        /* Handle the http response received. */
+        ret = handleHttpResponse(&response);
     }
+
+    if (reconnectRequired == true)
+    {
+        if ( prvConnectToServer(&xNetworkContextHttp, NULL) == EXIT_SUCCESS)
+        {
+            ret = HTTPSuccess;
+        }
+        else
+        {
+            /* Log an error to indicate connection failure after all
+             * reconnect attempts are over. */
+            LogError(("Failed to connect to HTTP server %s.",
+                cServerHost));
+
+            ret = OtaHttpRequestFailed;
+        }
+    }
+
+
 
     return ret;
 }
@@ -1556,7 +1712,7 @@ static int prvStartOTADemo( void )
                                   "OTA Agent Task",
                                   otaexampleSTACK_SIZE,
                                   NULL,
-                                  tskIDLE_PRIORITY,
+                                  OTA_AGENT_TASK_PRIORITY,
                                   &xOtaTaskHandle ) ) != pdPASS )
         {
             LogError( ( "Failed to start OTA task: "
@@ -1605,6 +1761,7 @@ static int prvStartOTADemo( void )
                     /* Loop to receive packet from transport interface. */
                     mqttStatus = MQTT_ProcessLoop( &xMQTTContext, otaexampleTASK_DELAY_MS );
                     xSemaphoreGive( xMqttMutex );
+                    taskYIELD();
                 }
                 else
                 {
@@ -1693,13 +1850,13 @@ int RunOtaCoreHttpDemo( bool awsIotMqttMode,
     ( void ) pNetworkInterface;
 
     /* Return error status. */
-    int32_t returnStatus = EXIT_FAILURE;
+    int32_t returnStatus = EXIT_SUCCESS;
      /* Semaphore initialization flag. */
     bool xBufferSemInitialized = false;
     bool xMqttMutexInitialized = false;
 
     /* Initialize semaphore for buffer operations. */
-    xBufferSemaphore = xSemaphoreCreateBinary();
+    xBufferSemaphore = xSemaphoreCreateMutex();
     if( xBufferSemaphore == NULL )
     {
         LogError( ( "Failed to initialize buffer semaphore." ) );

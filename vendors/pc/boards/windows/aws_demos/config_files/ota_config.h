@@ -72,6 +72,12 @@
  */
 #define otaconfigLOG2_FILE_BLOCK_SIZE          12UL
 
+ /**
+  * @brief Size of the file data block message (excluding the header).
+  *
+  */
+#define otaconfigFILE_BLOCK_SIZE                ( 1UL << otaconfigLOG2_FILE_BLOCK_SIZE )
+
 /**
  * @brief Milliseconds to wait for the self test phase to succeed before we force reset.
  */
@@ -107,7 +113,7 @@
  *  Please note that this must be set larger than zero.
  *
  */
-#define otaconfigMAX_NUM_BLOCKS_REQUEST        2U
+#define otaconfigMAX_NUM_BLOCKS_REQUEST        4U
 
 /**
  * @brief The maximum number of requests allowed to send without a response before we abort.
@@ -125,6 +131,17 @@
  * the OTA agent for job and file data blocks received.
  */
 #define otaconfigMAX_NUM_OTA_DATA_BUFFERS      4U
+
+ /**
+  * @brief How frequently the device will report its OTA progress to the cloud.
+  *
+  * Device will update the job status with the number of blocks it has received every certain
+  * number of blocks it receives. For example, 25 means device will update job status every 25 blocks
+  * it receives.
+  */
+#define otaconfigOTA_UPDATE_STATUS_FREQUENCY    25U
+
+
 
 /**
  * @brief Allow update to same or lower version.
@@ -158,7 +175,7 @@
  * Enable data over HTTP - ( OTA_DATA_OVER_HTTP)
  * Enable data over both MQTT & HTTP ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP )
  */
-#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT )
+#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP  )
 
 /**
  * @brief The preferred protocol selected for OTA data operations.

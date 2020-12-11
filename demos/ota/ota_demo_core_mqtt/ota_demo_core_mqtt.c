@@ -290,7 +290,7 @@ uint8_t bitmap[ OTA_MAX_BLOCK_BITMAP_SIZE ];
 /**
  * @brief Event buffer.
  */
-static OtaEventData_t eventBuffer;
+static OtaEventData_t eventBuffer[otaconfigMAX_NUM_OTA_DATA_BUFFERS ];
 
 /**
  * @brief Static handle for MQTT context.
@@ -525,6 +525,55 @@ static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
                                  uint8_t qos );
 
 /*-----------------------------------------------------------*/
+
+
+/*-----------------------------------------------------------*/
+
+static void otaEventBufferFree(OtaEventData_t* const pxBuffer)
+{
+    if (xSemaphoreTake(xBufferSemaphore, portMAX_DELAY) == pdTRUE)
+    {
+        pxBuffer->bufferUsed = false;
+        (void)xSemaphoreGive(xBufferSemaphore);
+    }
+    else
+    {
+        LogError(("Failed to get buffer semaphore: "
+            ",errno=%s",
+            strerror(errno)));
+    }
+}
+
+/*-----------------------------------------------------------*/
+
+static OtaEventData_t* otaEventBufferGet(void)
+{
+    uint32_t ulIndex = 0;
+    OtaEventData_t* pFreeBuffer = NULL;
+
+    if (xSemaphoreTake(xBufferSemaphore, portMAX_DELAY) == pdTRUE)
+    {
+        for (ulIndex = 0; ulIndex < otaconfigMAX_NUM_OTA_DATA_BUFFERS; ulIndex++)
+        {
+            if (eventBuffer[ulIndex].bufferUsed == false)
+            {
+                eventBuffer[ulIndex].bufferUsed = true;
+                pFreeBuffer = &eventBuffer[ulIndex];
+                break;
+            }
+        }
+
+        (void)xSemaphoreGive(xBufferSemaphore);
+    }
+    else
+    {
+        LogError(("Failed to get buffer semaphore: "
+            ",errno=%s",
+            strerror(errno)));
+    }
+
+    return pFreeBuffer;
+}
 
 static void prvEventCallback( MQTTContext_t * pxMQTTContext,
                               MQTTPacketInfo_t * pxPacketInfo,
@@ -785,7 +834,7 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
  * MQTT server. Set this to `false` if using another MQTT server.
  * @return None.
  */
-static void otaAppCallback( OtaJobEvent_t event )
+static void otaAppCallback(OtaJobEvent_t event, const void* pData)
 {
     OtaErr_t err = OtaErrUninitialized;
 
@@ -800,12 +849,10 @@ static void otaAppCallback( OtaJobEvent_t event )
         /* Activate the new firmware image. */
         OTA_ActivateNewImage();
 
-        /* We should never get here as new image activation must reset the device.*/
-        LogError( ( "New image activation failed." ) );
+        /* Shutdown OTA Agent. */
+        OTA_Shutdown(0);
 
-        for( ; ; )
-        {
-        }
+        LogError(("New image activation failed."));
     }
     else if( event == OtaJobEventFail )
     {
@@ -829,6 +876,15 @@ static void otaAppCallback( OtaJobEvent_t event )
             LogError( ( " Error! Failed to set image state as accepted." ) );
         }
     }
+    else if (event == OtaJobEventProcessed)
+    {
+        LogDebug(("Received OtaJobEventProcessed callback from OTA Agent."));
+
+        if (pData != NULL)
+        {
+            otaEventBufferFree((OtaEventData_t*)pData);
+        }
+    }
 }
 
 /*-----------------------------------------------------------*/
@@ -844,7 +900,7 @@ static void mqttDataCallback( MQTTContext_t * pContext,
 
     LogInfo( ( "Received data message callback, size %d.\n\n", pPublishInfo->payloadLength ) );
 
-    pData = &eventBuffer;
+    pData = otaEventBufferGet();
 
     if( pData != NULL )
     {
@@ -875,7 +931,7 @@ static void mqttJobCallback( MQTTContext_t * pContext,
 
     LogInfo( ( "Received job message callback, size %d.\n\n", pPublishInfo->payloadLength ) );
 
-    pData = &eventBuffer;
+    pData = otaEventBufferGet();
 
     if( pData != NULL )
     {
@@ -1284,15 +1340,13 @@ static int prvStartOTADemo( void )
                 /* Acquire the mqtt mutex lock. */
                 if( xSemaphoreTake( xMqttMutex, DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR ) == pdTRUE )
                 {
-                    /*LogInfo(("Acquired semaphore for process loop.")); */
                     /* Loop to receive packet from transport interface. */
                     mqttStatus = MQTT_ProcessLoop( &xMQTTContext, otaexampleTASK_DELAY_MS );
 
                     xSemaphoreGive( xMqttMutex );
 
-                    /*taskYIELD(); */
+                    taskYIELD();
 
-                    /*LogInfo(("Released semaphore for process loop.")); */
                 }
                 else
                 {
@@ -1389,7 +1443,7 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
     bool xMqttAckSemInitialized = false;
 
     /* Initialize semaphore for buffer operations. */
-    xBufferSemaphore = xSemaphoreCreateBinary();
+    xBufferSemaphore = xSemaphoreCreateMutex();
 
     if( xBufferSemaphore == NULL )
     {
