@@ -41,6 +41,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <aws_demo_config.h>
 /* Include common demo header. */
 #include "aws_demo.h"
 
@@ -188,11 +189,6 @@
  * statistics like number of packets received, dropped, processed and queued per connection.
  */
 #define OTA_EXAMPLE_TASK_DELAY_MS                   ( 500U )
-
-/*
- * @brief Run OTA agent at equal or higher priority as that of demo polling task.
- */
-#define OTA_AGENT_TASK_PRIORITY                     ( configMAX_PRIORITIES - 1 )
 
 /**
  * @brief The common prefix for all OTA topics.
@@ -354,7 +350,6 @@ static OtaAppBuffer_t otaBuffer =
     .fileBitmapSize     = OTA_MAX_BLOCK_BITMAP_SIZE
 };
 
-
 /**
  * @brief Enum for type of OTA messages received.
  */
@@ -377,6 +372,15 @@ const AppVersion32_t appFirmwareVersion =
 };
 
 /*-----------------------------------------------------------*/
+
+/*
+ * @brief Wrapper function to delete the OTA agent task once it exists.
+ */
+static void prvOTAAgentTaskWrapper(void* pvParam)
+{
+    otaAgentTask(pvParam);
+    vTaskDelete(NULL);
+}
 
 static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
                                            uint16_t topicFilterLength )
@@ -1290,11 +1294,11 @@ static int prvStartOTADemo( void )
 
     if( otaRet == OtaErrNone )
     {
-        if( ( xRet = xTaskCreate( otaAgentTask,
+        if( ( xRet = xTaskCreate( prvOTAAgentTaskWrapper,
                                   "OTA Agent Task",
                                   otaexampleSTACK_SIZE,
                                   NULL,
-                                  OTA_AGENT_TASK_PRIORITY,
+                                  democonfigDEMO_PRIORITY,
                                   &xOtaTaskHandle ) ) != pdPASS )
         {
             LogError( ( "Failed to start OTA task: "
@@ -1395,12 +1399,6 @@ static int prvStartOTADemo( void )
                     }
                 }
             }
-        }
-
-        if( xOtaTaskHandle != NULL )
-        {
-            vTaskDelete( xOtaTaskHandle );
-            returnStatus = EXIT_SUCCESS;
         }
     }
 

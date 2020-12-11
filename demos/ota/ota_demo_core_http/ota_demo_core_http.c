@@ -41,6 +41,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "aws_demo_config.h"
+
 /* Include common demo header. */
 #include "aws_demo.h"
 
@@ -217,11 +219,6 @@
  * @brief Milliseconds per FreeRTOS tick.
  */
 #define MILLISECONDS_PER_TICK                       ( MILLISECONDS_PER_SECOND / configTICK_RATE_HZ )
-
- /*
-  * @brief Run OTA agent at equal or higher priority as that of demo polling task.
-  */
-#define OTA_AGENT_TASK_PRIORITY                     ( configMAX_PRIORITIES - 1 )
 
 /**
  * @brief OTA example max host address size.
@@ -545,6 +542,18 @@ static OtaErr_t mqttSubscribe( const char * pTopicFilter,
 static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
                                  uint16_t topicFilterLength,
                                  uint8_t qos );
+
+/*-----------------------------------------------------------*/
+
+/*
+ * @brief Wrapper function to delete the OTA agent task once it exists.
+ */
+static void prvOTAAgentTaskWrapper(void* pvParam)
+{
+    otaAgentTask(pvParam);
+    vTaskDelete(NULL);
+}
+
 
 /*-----------------------------------------------------------*/
 
@@ -1708,11 +1717,11 @@ static int prvStartOTADemo( void )
 
     if( otaRet == OtaErrNone )
     {
-        if( ( xRet = xTaskCreate( otaAgentTask,
+        if( ( xRet = xTaskCreate( prvOTAAgentTaskWrapper,
                                   "OTA Agent Task",
                                   otaexampleSTACK_SIZE,
                                   NULL,
-                                  OTA_AGENT_TASK_PRIORITY,
+                                  democonfigDEMO_PRIORITY,
                                   &xOtaTaskHandle ) ) != pdPASS )
         {
             LogError( ( "Failed to start OTA task: "
@@ -1810,12 +1819,6 @@ static int prvStartOTADemo( void )
                     }
                 }
             }
-        }
-
-        if( xOtaTaskHandle != NULL )
-        {
-            vTaskDelete( xOtaTaskHandle );
-            returnStatus = EXIT_SUCCESS;
         }
     }
 
