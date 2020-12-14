@@ -174,10 +174,16 @@
 #define otaexampleMAX_FILE_PATH_SIZE                ( 260 )
 
 /**
- * @brief The maximum size of the stream name required for downloading update file
- * from streaming service.
+ * @brief The maximum size of the presigned url required for downloading update file
+ * from S3 service.
  */
-#define otaexampleMAX_STREAM_NAME_SIZE              ( 128 )
+#define otaexampleMAX_PRESIGNED_URL_SIZE            ( 2048U )
+
+ /**
+  * @brief The maximum size of the presigned url required for downloading update file
+  * from S3 service.
+  */
+#define otaexampleMAX_AUTH_SCHEME_SIZE            ( 2048U )
 
 /**
  * @brief The delay used in the main OTA Demo task loop to periodically output the OTA
@@ -332,9 +338,14 @@ uint8_t updateFilePath[ otaexampleMAX_FILE_PATH_SIZE ];
 uint8_t certFilePath[ otaexampleMAX_FILE_PATH_SIZE ];
 
 /**
- * @brief Stream name buffer.
+ * @brief Presigned url buffer.
  */
-uint8_t streamName[ otaexampleMAX_STREAM_NAME_SIZE ];
+uint8_t presignedUrl[otaexampleMAX_PRESIGNED_URL_SIZE];
+
+/**
+ * @brief Auth Scheme.
+ */
+uint8_t authScheme[otaexampleMAX_AUTH_SCHEME_SIZE];
 
 /**
  * @brief Decode memory.
@@ -456,12 +467,14 @@ static OtaAppBuffer_t otaBuffer =
     .updateFilePathsize = otaexampleMAX_FILE_PATH_SIZE,
     .pCertFilePath      = certFilePath,
     .certFilePathSize   = otaexampleMAX_FILE_PATH_SIZE,
-    .pStreamName        = streamName,
-    .streamNameSize     = otaexampleMAX_STREAM_NAME_SIZE,
     .pDecodeMemory      = decodeMem,
     .decodeMemorySize   = ( 1U << otaconfigLOG2_FILE_BLOCK_SIZE ),
     .pFileBitmap        = bitmap,
-    .fileBitmapSize     = OTA_MAX_BLOCK_BITMAP_SIZE
+    .fileBitmapSize     = OTA_MAX_BLOCK_BITMAP_SIZE,
+	.pUrl               = presignedUrl,
+	.urlSize            = otaexampleMAX_PRESIGNED_URL_SIZE,
+	.pAuthScheme        = authScheme,
+	.authSchemeSize     = otaexampleMAX_AUTH_SCHEME_SIZE
 };
 
 /**
