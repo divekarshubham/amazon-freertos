@@ -59,7 +59,7 @@ static inline BaseType_t prvContextValidate( OtaFileContext_t* pFileContext )
 
 OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t* const C )
 {
-    OtaPalMainStatus_t mainErr = OtaPalUninitialized;
+    OtaPalMainStatus_t mainErr = OtaPalSuccess;
     OtaPalSubStatus_t subErr = 0;
 
     if( C != NULL )
@@ -102,7 +102,7 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t* const C )
 OtaPalStatus_t otaPal_Abort( OtaFileContext_t * const C )
 {
     /* Set default return status to uninitialized. */
-    OtaPalMainStatus_t mainErr = OtaPalUninitialized;
+    OtaPalMainStatus_t mainErr = OtaPalSuccess;
     OtaPalSubStatus_t subErr = 0;
     int32_t lFileCloseResult;
 
@@ -191,7 +191,7 @@ int16_t otaPal_WriteBlock( OtaFileContext_t * const C,
 
 OtaPalStatus_t otaPal_CloseFile( OtaFileContext_t * const C )
 {
-    OtaPalMainStatus_t mainErr = OtaPalUninitialized;
+    OtaPalMainStatus_t mainErr = OtaPalSuccess;
     OtaPalSubStatus_t subErr = 0;
     int32_t lWindowsError = 0;
 
@@ -458,7 +458,7 @@ OtaPalStatus_t otaPal_SetPlatformImageState( OtaFileContext_t* pFileContext, Ota
 {
 	(void)pFileContext;
 
-    OtaPalMainStatus_t mainErr = OtaPalUninitialized;
+    OtaPalMainStatus_t mainErr = OtaPalSuccess;
     OtaPalSubStatus_t subErr = 0;
     FILE * pstPlatformImageState;
 
