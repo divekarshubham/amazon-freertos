@@ -542,9 +542,7 @@ static void otaEventBufferFree(OtaEventData_t* const pxBuffer)
     }
     else
     {
-        LogError(("Failed to get buffer semaphore: "
-            ",errno=%s",
-            strerror(errno)));
+        LogError(("Failed to get buffer semaphore: "));
     }
 }
 
@@ -571,9 +569,7 @@ static OtaEventData_t* otaEventBufferGet(void)
     }
     else
     {
-        LogError(("Failed to get buffer semaphore: "
-            ",errno=%s",
-            strerror(errno)));
+        LogError(("Failed to get buffer semaphore: "));
     }
 
     return pFreeBuffer;

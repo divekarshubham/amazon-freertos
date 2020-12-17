@@ -1,5 +1,5 @@
 /*
- * FreeRTOS V1.4.7
+ * AWS IoT Device SDK for Embedded C V202009.00
  * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -18,9 +18,6 @@
  * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * http://aws.amazon.com/freertos
- * http://www.FreeRTOS.org
  */
 
 /**
@@ -57,23 +54,17 @@
 /************ End of logging configuration ****************/
 
 /**
- * @brief OTA Stack size.
- * 
- */
-#define otaconfigSTACK_SIZE 6000U
-
-/**
- * @brief OTA Agent Priority.
- * 
- */
-#define otaconfigAGENT_PRIORITY tskIDLE_PRIORITY + 5U
-
-/**
  * @brief Log base 2 of the size of the file data block message (excluding the header).
  *
  * 10 bits yields a data block size of 1KB.
  */
-#define otaconfigLOG2_FILE_BLOCK_SIZE          10UL
+#define otaconfigLOG2_FILE_BLOCK_SIZE          12UL
+
+ /**
+  * @brief Size of the file data block message (excluding the header).
+  *
+  */
+#define otaconfigFILE_BLOCK_SIZE                ( 1UL << otaconfigLOG2_FILE_BLOCK_SIZE )
 
 /**
  * @brief Milliseconds to wait for the self test phase to succeed before we force reset.
@@ -96,41 +87,21 @@
  * initializing the OTA agent. The agent uses this size to allocate static storage for the
  * Thing name used in all OTA base topics. Namely $aws/things/<thingName>
  */
-#define otaconfigMAX_THINGNAME_LEN             64U
+#define otaconfigMAX_THINGNAME_LEN             128U
 
 /**
- * @brief The maximum number of data blocks requested per request from the OTA
- * streaming service.
+ * @brief The maximum number of data blocks requested from OTA streaming service.
  *
- * This configuration parameter is sent with data requests and represents the
- * maximum number of data blocks the service will send in a single response.
- * The amount of data requested and therefore received in a single response
- * (in bytes) is equal to:
+ *  This configuration parameter is sent with data requests and represents the maximum number of
+ *  data blocks the service will send in response. The maximum limit for this must be calculated
+ *  from the maximum data response limit (128 KB from service) divided by the block size.
+ *  For example if block size is set as 1 KB then the maximum number of data blocks that we can
+ *  request is 128/1 = 128 blocks. Configure this parameter to this maximum limit or lower based on
+ *  how many data blocks response is expected for each data requests.
+ *  Please note that this must be set larger than zero.
  *
- * (otaconfigMAX_NUM_BLOCKS_REQUEST * ( pow(2,otaconfigLOG2_FILE_BLOCK_SIZE) )
- *
- * @note If the device has a incoming TLS I/O buffer set to be less than the
- * standard default size of 16KB, then the amount of bytes being requested has
- * to be less than the the size of the incoming TLS I/O buffer.
- * <br><br>
- *
- * For example, if the device has otaconfigLOG2_FILE_BLOCK_SIZE set to '12',
- * then each data block will be 4096 bytes large. If the device also has a
- * incoming TLS I/O bufferthat is 8KB large, then the
- * otaconfigMAX_NUM_BLOCKS_REQUEST must be set to '1' so that the data received
- * in one response doesn't surpass the size of the incoming TLS I/O buffer.
- *
- * @note If the device has a incoming TLS I/O buffer set to be equal to the
- * standard default size of 16Kb, then the maximum limit for this must be
- * calculated from the maximum data response limit (128 KB from service)
- * divided by the block size. For example if block size is set as 1 KB then the
- * maximum number of data blocks that we can request is 128/1 = 128 blocks.
- * Configure this parameter to this maximum limit or lower based on how many
- * data blocks response is expected for each data requests.
- *
- * @note This must be set to a value larger than zero.
  */
-#define otaconfigMAX_NUM_BLOCKS_REQUEST        1U
+#define otaconfigMAX_NUM_BLOCKS_REQUEST        4U
 
 /**
  * @brief The maximum number of requests allowed to send without a response before we abort.
@@ -147,7 +118,18 @@
  * This configurations parameter sets the maximum number of static data buffers used by
  * the OTA agent for job and file data blocks received.
  */
-#define otaconfigMAX_NUM_OTA_DATA_BUFFERS      2U
+#define otaconfigMAX_NUM_OTA_DATA_BUFFERS      4U
+
+ /**
+  * @brief How frequently the device will report its OTA progress to the cloud.
+  *
+  * Device will update the job status with the number of blocks it has received every certain
+  * number of blocks it receives. For example, 25 means device will update job status every 25 blocks
+  * it receives.
+  */
+#define otaconfigOTA_UPDATE_STATUS_FREQUENCY    25U
+
+
 
 /**
  * @brief Allow update to same or lower version.
@@ -181,7 +163,7 @@
  * Enable data over HTTP - ( OTA_DATA_OVER_HTTP)
  * Enable data over both MQTT & HTTP ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP )
  */
-#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT )
+#define configENABLED_DATA_PROTOCOLS           ( OTA_DATA_OVER_MQTT | OTA_DATA_OVER_HTTP  )
 
 /**
  * @brief The preferred protocol selected for OTA data operations.
