@@ -563,7 +563,7 @@ static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
  */
 static void prvOTAAgentTaskWrapper(void* pvParam)
 {
-    otaAgentTask(pvParam);
+    OTA_EventProcessingTask(pvParam);
     vTaskDelete(NULL);
 }
 

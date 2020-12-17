@@ -378,7 +378,7 @@ const AppVersion32_t appFirmwareVersion =
  */
 static void prvOTAAgentTaskWrapper(void* pvParam)
 {
-    otaAgentTask(pvParam);
+    OTA_EventProcessingTask(pvParam);
     vTaskDelete(NULL);
 }
 
