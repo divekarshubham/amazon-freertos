@@ -24,7 +24,7 @@
  */
 
 /**
- * @file aws_iot_ota_update_demo.c
+ * @file ota_demo_core_mqtt.c
  * @brief A simple OTA update example.
  *
  * This example initializes the OTA agent to enable OTA updates via the
