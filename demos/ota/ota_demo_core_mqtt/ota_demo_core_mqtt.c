@@ -84,7 +84,7 @@
 /* OTA Library demo helper functions. */
 #include "ota_demo_helpers.h"
 
-/* Include firmware version struct definition. */
+/* Includs OTA  firmware version. */
 #include "ota_appversion32.h"
 
 /* Include platform abstraction header. */
@@ -251,14 +251,6 @@
 #define DEFAULT_TICKS_TO_WAIT_FOR_SEMPHR            ( pdMS_TO_TICKS( 2 * otaexampleTASK_DELAY_MS ) )
 
 /**
- * @brief Configure application version.
- */
-
-#define APP_VERSION_MAJOR    0
-#define APP_VERSION_MINOR    9
-#define APP_VERSION_BUILD    2
-
-/**
  * @brief Update File path buffer.
  */
 uint8_t updateFilePath[ otaexampleMAX_FILE_PATH_SIZE ];
@@ -286,7 +278,7 @@ uint8_t bitmap[ OTA_MAX_BLOCK_BITMAP_SIZE ];
 /**
  * @brief Event buffer.
  */
-static OtaEventData_t eventBuffer[otaconfigMAX_NUM_OTA_DATA_BUFFERS ];
+static OtaEventData_t eventBuffer[ otaconfigMAX_NUM_OTA_DATA_BUFFERS ];
 
 /**
  * @brief Static handle for MQTT context.
@@ -296,7 +288,7 @@ static MQTTContext_t xMQTTContext;
 /**
  * @brief Static handle for Network context.
  */
-NetworkContext_t xNetworkContext;
+static NetworkContext_t xNetworkContext;
 
 /**
  * @brief Mutex for synchronizing coreMQTT API calls.
@@ -360,26 +352,15 @@ typedef enum OtaMessageType
     OtaNumOfMessageType
 } OtaMessageType_t;
 
-/**
- * @brief Struct for firmware version.
- */
-/* This is a temporary change to enable building for now. */
-const AppVersion32_t appFirmwareVersion =
-{
-    .u.x.major = APP_VERSION_MAJOR,
-    .u.x.minor = APP_VERSION_MINOR,
-    .u.x.build = APP_VERSION_BUILD,
-};
-
 /*-----------------------------------------------------------*/
 
 /*
  * @brief Wrapper function to delete the OTA agent task once it exists.
  */
-static void prvOTAAgentTaskWrapper(void* pvParam)
+static void prvOTAAgentTaskWrapper( void * pvParam )
 {
-    OTA_EventProcessingTask(pvParam);
-    vTaskDelete(NULL);
+    OTA_EventProcessingTask( pvParam );
+    vTaskDelete( NULL );
 }
 
 static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
@@ -517,59 +498,59 @@ static OtaErr_t mqttPublish( const char * const pacTopic,
 /*
  * Subscribe to the topics.
  */
-static OtaErr_t mqttSubscribe( const char * pTopicFilter,
-                               uint16_t topicFilterLength,
-                               uint8_t qos );
+static OtaMqttStatus_t mqttSubscribe( const char * pTopicFilter,
+                                      uint16_t topicFilterLength,
+                                      uint8_t qos );
 
 /*
  * Unsubscribe from the topics.
  */
-static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
-                                 uint16_t topicFilterLength,
-                                 uint8_t qos );
+static OtaMqttStatus_t mqttUnsubscribe( const char * pTopicFilter,
+                                        uint16_t topicFilterLength,
+                                        uint8_t qos );
 
 /*-----------------------------------------------------------*/
 
 
 /*-----------------------------------------------------------*/
 
-static void otaEventBufferFree(OtaEventData_t* const pxBuffer)
+static void otaEventBufferFree( OtaEventData_t * const pxBuffer )
 {
-    if (xSemaphoreTake(xBufferSemaphore, portMAX_DELAY) == pdTRUE)
+    if( xSemaphoreTake( xBufferSemaphore, portMAX_DELAY ) == pdTRUE )
     {
         pxBuffer->bufferUsed = false;
-        (void)xSemaphoreGive(xBufferSemaphore);
+        ( void ) xSemaphoreGive( xBufferSemaphore );
     }
     else
     {
-        LogError(("Failed to get buffer semaphore: "));
+        LogError( ( "Failed to get buffer semaphore: " ) );
     }
 }
 
 /*-----------------------------------------------------------*/
 
-static OtaEventData_t* otaEventBufferGet(void)
+static OtaEventData_t * otaEventBufferGet( void )
 {
     uint32_t ulIndex = 0;
-    OtaEventData_t* pFreeBuffer = NULL;
+    OtaEventData_t * pFreeBuffer = NULL;
 
-    if (xSemaphoreTake(xBufferSemaphore, portMAX_DELAY) == pdTRUE)
+    if( xSemaphoreTake( xBufferSemaphore, portMAX_DELAY ) == pdTRUE )
     {
-        for (ulIndex = 0; ulIndex < otaconfigMAX_NUM_OTA_DATA_BUFFERS; ulIndex++)
+        for( ulIndex = 0; ulIndex < otaconfigMAX_NUM_OTA_DATA_BUFFERS; ulIndex++ )
         {
-            if (eventBuffer[ulIndex].bufferUsed == false)
+            if( eventBuffer[ ulIndex ].bufferUsed == false )
             {
-                eventBuffer[ulIndex].bufferUsed = true;
-                pFreeBuffer = &eventBuffer[ulIndex];
+                eventBuffer[ ulIndex ].bufferUsed = true;
+                pFreeBuffer = &eventBuffer[ ulIndex ];
                 break;
             }
         }
 
-        (void)xSemaphoreGive(xBufferSemaphore);
+        ( void ) xSemaphoreGive( xBufferSemaphore );
     }
     else
     {
-        LogError(("Failed to get buffer semaphore: "));
+        LogError( ( "Failed to get buffer semaphore: " ) );
     }
 
     return pFreeBuffer;
@@ -834,7 +815,8 @@ static BaseType_t prvConnectToServerWithBackoffRetries( NetworkContext_t * pxNet
  * MQTT server. Set this to `false` if using another MQTT server.
  * @return None.
  */
-static void otaAppCallback(OtaJobEvent_t event, const void* pData)
+static void otaAppCallback( OtaJobEvent_t event,
+                            const void * pData )
 {
     OtaErr_t err = OtaErrUninitialized;
 
@@ -850,9 +832,9 @@ static void otaAppCallback(OtaJobEvent_t event, const void* pData)
         OTA_ActivateNewImage();
 
         /* Shutdown OTA Agent. */
-        OTA_Shutdown(0);
+        OTA_Shutdown( 0 );
 
-        LogError(("New image activation failed."));
+        LogError( ( "New image activation failed." ) );
     }
     else if( event == OtaJobEventFail )
     {
@@ -876,13 +858,13 @@ static void otaAppCallback(OtaJobEvent_t event, const void* pData)
             LogError( ( " Error! Failed to set image state as accepted." ) );
         }
     }
-    else if (event == OtaJobEventProcessed)
+    else if( event == OtaJobEventProcessed )
     {
-        LogDebug(("Received OtaJobEventProcessed callback from OTA Agent."));
+        LogDebug( ( "Received OtaJobEventProcessed callback from OTA Agent." ) );
 
-        if (pData != NULL)
+        if( pData != NULL )
         {
-            otaEventBufferFree((OtaEventData_t*)pData);
+            otaEventBufferFree( ( OtaEventData_t * ) pData );
         }
     }
 }
@@ -952,9 +934,9 @@ static void mqttJobCallback( MQTTContext_t * pContext,
 static SubscriptionManagerCallback_t otaMessageCallback[ OtaNumOfMessageType ] = { mqttJobCallback, mqttDataCallback };
 /*-----------------------------------------------------------*/
 
-static OtaErr_t mqttSubscribe( const char * pTopicFilter,
-                               uint16_t topicFilterLength,
-                               uint8_t qos )
+static OtaMqttStatus_t mqttSubscribe( const char * pTopicFilter,
+                                      uint16_t topicFilterLength,
+                                      uint8_t qos )
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
     SubscriptionManagerStatus_t subscriptionStatus = SUBSCRIPTION_MANAGER_SUCCESS;
@@ -1036,11 +1018,11 @@ static OtaErr_t mqttSubscribe( const char * pTopicFilter,
 /*
  * Publish a message to the specified client/topic at the given QOS.
  */
-static OtaErr_t mqttPublish( const char * const pacTopic,
-                             uint16_t topicLen,
-                             const char * pMsg,
-                             uint32_t msgSize,
-                             uint8_t qos )
+static OtaMqttStatus_t mqttPublish( const char * const pacTopic,
+                                    uint16_t topicLen,
+                                    const char * pMsg,
+                                    uint32_t msgSize,
+                                    uint8_t qos )
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
 
@@ -1093,9 +1075,9 @@ static OtaErr_t mqttPublish( const char * const pacTopic,
     return otaRet;
 }
 
-static OtaErr_t mqttUnsubscribe( const char * pTopicFilter,
-                                 uint16_t topicFilterLength,
-                                 uint8_t qos )
+static OtaMqttStatus_t mqttUnsubscribe( const char * pTopicFilter,
+                                        uint16_t topicFilterLength,
+                                        uint8_t qos )
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
     MQTTStatus_t mqttStatus = MQTTBadParameter;
@@ -1346,7 +1328,6 @@ static int prvStartOTADemo( void )
                     xSemaphoreGive( xMqttMutex );
 
                     taskYIELD();
-
                 }
                 else
                 {
