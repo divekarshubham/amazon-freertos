@@ -169,6 +169,18 @@
     <Filter Include="demos\ota\ota_demo_core_http">
       <UniqueIdentifier>{3129bd54-40eb-4226-a1d2-1b89264ce3f5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libraries\coreMQTTAgent">
+      <UniqueIdentifier>{57d18d33-ebd5-4912-bf5f-18b2a0c65c7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libraries\coreMQTTAgent\source">
+      <UniqueIdentifier>{1f0c49f6-ad74-420d-a12b-d8aefb678180}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libraries\coreMQTTAgent\source\include">
+      <UniqueIdentifier>{caf48f38-c1cb-4a3e-9776-3dbd6dc72288}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="demos\common\mqtt_subscription_manager">
+      <UniqueIdentifier>{eff81229-4bbb-4f46-a47c-df70e9bd4b6e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\..\freertos_kernel\include\FreeRTOS.h">
@@ -821,6 +833,18 @@
     </ClInclude>
     <ClInclude Include="..\..\..\..\..\vendors\pc\boards\windows\aws_demos\config_files\ota_config.h">
       <Filter>demos\ota\ota_demo_core_mqtt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\libraries\coreMQTTAgent\source\include\agent_command_pool.h">
+      <Filter>libraries\coreMQTTAgent\source\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\libraries\coreMQTTAgent\source\include\agent_message.h">
+      <Filter>libraries\coreMQTTAgent\source\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\libraries\coreMQTTAgent\source\include\freertos_mqtt_agent.h">
+      <Filter>libraries\coreMQTTAgent\source\include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\demos\common\mqtt_subscription_manager\subscription_manager.h">
+      <Filter>demos\common\mqtt_subscription_manager</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1501,6 +1525,18 @@
     </ClCompile>
     <ClCompile Include="..\..\..\..\..\demos\ota\ota_demo_core_http\ota_demo_core_http.c">
       <Filter>demos\ota\ota_demo_core_http</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\libraries\coreMQTTAgent\source\agent_command_pool.c">
+      <Filter>libraries\coreMQTTAgent\source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\libraries\coreMQTTAgent\source\agent_message.c">
+      <Filter>libraries\coreMQTTAgent\source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\libraries\coreMQTTAgent\source\freertos_mqtt_agent.c">
+      <Filter>libraries\coreMQTTAgent\source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\..\..\demos\common\mqtt_subscription_manager\subscription_manager.c">
+      <Filter>demos\common\mqtt_subscription_manager</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
