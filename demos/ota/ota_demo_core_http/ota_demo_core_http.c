@@ -2085,6 +2085,8 @@ static void prvOTAAgentTask( void * pParam )
     /* Calling OTA agent task. */
     OTA_EventProcessingTask( pParam );
     LogInfo( ( "OTA Agent stopped." ) );
+
+    vTaskDelete( NULL );
 }
 
 /*-----------------------------------------------------------*/
@@ -2121,6 +2123,8 @@ static void prvMQTTAgentTask( void * pParam )
             configASSERT( xResult == pdPASS );
         }
     } while( xMQTTStatus != MQTTSuccess );
+
+    vTaskDelete( NULL );
 }
 
 static BaseType_t prvSuspendOTA( void )
