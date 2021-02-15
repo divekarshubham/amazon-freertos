@@ -495,6 +495,11 @@ static NetworkContext_t networkContextHttp;
 static char serverHost[ 256 ];
 
 /**
+ * @brief The length of the host address found in the pre-signed URL.
+ */
+static size_t serverHostLength;
+
+/**
  * @brief A buffer used in the demo for storing HTTP request headers and
  * HTTP response headers and body.
  *
@@ -511,34 +516,6 @@ static TransportInterface_t transportInterfaceHttp;
  * @brief MQTT connection context used in this demo.
  */
 static MQTTContext_t mqttContext;
-
-/**
- * @brief Keep a flag for indicating if the MQTT connection is alive.
- */
-static bool mqttSessionEstablished = false;
-
-/**
- * @brief Mutex for synchronizing coreMQTT API calls.
- */
-static SemaphoreHandle_t xMqttMutex;
-
-/**
- * @brief Semaphore for acknowledgment from MQTT packet.
- */
-static SemaphoreHandle_t xMqttAckSem;
-
-/**
- * @brief The host address string extracted from the pre-signed URL.
- *
- * @note S3_PRESIGNED_GET_URL_LENGTH is set as the array length here as the
- * length of the host name string cannot exceed this value.
- */
-static char serverHost[ 256 ];
-
-/**
- * @brief The length of the host address found in the pre-signed URL.
- */
-static size_t serverHostLength;
 
 /**
  * @brief Semaphore for synchronizing buffer operations.
@@ -900,7 +877,7 @@ static IncomingPubCallback_t otaMessageCallback[ OtaNumOfMessageType ] = { prvMq
 
 /*-----------------------------------------------------------*/
 
-void otaEventBufferFree( OtaEventData_t * const pxBuffer )
+static void otaEventBufferFree( OtaEventData_t * const pxBuffer )
 {
     if( xSemaphoreTake( xBufferSemaphore, portMAX_DELAY ) == pdTRUE )
     {
@@ -915,7 +892,7 @@ void otaEventBufferFree( OtaEventData_t * const pxBuffer )
 
 /*-----------------------------------------------------------*/
 
-OtaEventData_t * otaEventBufferGet( void )
+static OtaEventData_t * otaEventBufferGet( void )
 {
     uint32_t ulIndex = 0;
     OtaEventData_t * pFreeBuffer = NULL;
@@ -1438,8 +1415,6 @@ static BaseType_t prvConnectToMQTTBroker( void )
         {
             LogDebug( ( "Success creating MQTT connection to %s.",
                         democonfigMQTT_BROKER_ENDPOINT ) );
-
-            mqttSessionEstablished = true;
         }
     }
 
