@@ -234,16 +234,6 @@
 #define AWS_IOT_MQTT_ALPN_LENGTH                 ( ( uint16_t ) ( sizeof( AWS_IOT_MQTT_ALPN ) - 1 ) )
 
 /**
- * @brief Length of MQTT server host name.
- */
-#define AWS_IOT_ENDPOINT_LENGTH                  ( ( uint16_t ) ( sizeof( AWS_IOT_ENDPOINT ) - 1 ) )
-
-/**
- * @brief Length of client identifier.
- */
-#define CLIENT_IDENTIFIER_LENGTH                 ( ( uint16_t ) ( sizeof( CLIENT_IDENTIFIER ) - 1 ) )
-
-/**
  * @brief Timeout for receiving CONNACK packet in milli seconds.
  */
 #define CONNACK_RECV_TIMEOUT_MS                  ( 2000U )
@@ -311,11 +301,6 @@
 #define CONNECTION_RETRY_BACKOFF_BASE_MS         ( 500U )
 
 /**
- * @brief Number of milliseconds in a second.
- */
-#define NUM_MILLISECONDS_IN_SECOND               ( 1000U )
-
-/**
  * @brief Maximum size of the url.
  */
 #define OTA_MAX_URL_SIZE                         ( 2048U )
@@ -332,68 +317,67 @@
  * otaconfigFILE_BLOCK_SIZE + extra for headers.
  */
 
-#define OTA_NETWORK_BUFFER_SIZE          ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
+#define OTA_NETWORK_BUFFER_SIZE                   ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
 
 /**
  * @brief The maximum number of retries for connecting to server.
  */
-#define CONNECTION_RETRY_MAX_ATTEMPTS    ( 5U )
+#define CONNECTION_RETRY_MAX_ATTEMPTS             ( 5U )
 
 /**
  * @brief The maximum size of the HTTP header.
  */
-#define HTTP_HEADER_SIZE_MAX             ( 1024U )
+#define HTTP_HEADER_SIZE_MAX                      ( 1024U )
 
 /* HTTP buffers used for http request and response. */
-#define HTTP_USER_BUFFER_LENGTH          ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
+#define HTTP_USER_BUFFER_LENGTH                   ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
 
 /**
  * @brief The common prefix for all OTA topics.
  */
-#define OTA_TOPIC_PREFIX                 "$aws/things/"
+#define OTA_TOPIC_PREFIX                          "$aws/things/"
 
 /**
  * @brief The string used for jobs topics.
  */
-#define OTA_TOPIC_JOBS                   "jobs"
+#define OTA_TOPIC_JOBS                            "jobs"
 
 /**
  * @brief The string used for streaming service topics.
  */
-#define OTA_TOPIC_STREAM                 "streams"
+#define OTA_TOPIC_STREAM                          "streams"
 
 /**
  * @brief The length of #OTA_TOPIC_PREFIX
  */
-#define OTA_TOPIC_PREFIX_LENGTH          ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
+#define OTA_TOPIC_PREFIX_LENGTH                   ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
 
 /**
  * @brief Stack size required for OTA agent task.
  */
-#define OTA_AGENT_TASK_STACK_SIZE        ( 6000U )
+#define OTA_AGENT_TASK_STACK_SIZE                 ( 6000U )
 
 /**
  * @brief Priority required for OTA agent task.
  */
-#define OTA_AGENT_TASK_PRIORITY          ( tskIDLE_PRIORITY )
+#define OTA_AGENT_TASK_PRIORITY                   ( tskIDLE_PRIORITY )
 
 /**
  * @brief Stack size required for OTA statistics  task.
  */
-#define MQTT_AGENT_TASK_STACK_SIZE       ( 2048U )
+#define MQTT_AGENT_TASK_STACK_SIZE                ( 2048U )
 
 /**
  * @brief Priority required for OTA statistics task.
  */
-#define MQTT_AGENT_TASK_PRIORITY         ( tskIDLE_PRIORITY )
+#define MQTT_AGENT_TASK_PRIORITY                  ( tskIDLE_PRIORITY )
 
 /**
  * @brief The maximum amount of time in milliseconds to wait for the commands
  * to be posted to the MQTT agent should the MQTT agent's command queue be full.
  * Tasks wait in the Blocked state, so don't use any CPU time.
  */
-#define MQTT_AGENT_SEND_BLOCK_TIME_MS    ( 200 )
-
+#define MQTT_AGENT_SEND_BLOCK_TIME_MS             ( 200 )
 
 /**
  * @brief This demo uses task notifications to signal tasks from MQTT callback
@@ -782,7 +766,7 @@ static void prvMQTTAgentCmdCompleteCallback( CommandContext_t * pxCommandContext
  *
  * @return   pPASS or pdFAIL.
  */
-static BaseType_t prvStartOTA( void );
+static BaseType_t prvRunOTADemo( void );
 
 /**
  * @brief Suspend OTA demo.
@@ -935,8 +919,11 @@ static void otaAppCallback( OtaJobEvent_t event,
             /* Activate the new firmware image. */
             OTA_ActivateNewImage();
 
-            /* Initiate Shutdown of OTA Agent. */
-            OTA_Shutdown( 0 );
+            /* Initiate Shutdown of OTA Agent.
+             * If it is required that the unsubscribe operations are not
+             * performed while shutting down please set the second parameter to 0 instead of 1.
+             */
+            OTA_Shutdown( 0, 1 );
 
             /* Requires manual activation of new image.*/
             LogError( ( "New image activation failed." ) );
@@ -988,8 +975,11 @@ static void otaAppCallback( OtaJobEvent_t event,
              * new image downloaded failed.*/
             LogError( ( "Self-test of new image failed, shutting down OTA Agent." ) );
 
-            /* Initiate Shutdown of OTA Agent. */
-            OTA_Shutdown( 0 );
+            /* Initiate Shutdown of OTA Agent.
+             * If it is required that the unsubscribe operations are not
+             * performed while shutting down please set the second parameter to 0 instead of 1.
+             */
+            OTA_Shutdown( 0, 1 );
 
             break;
 
@@ -2172,7 +2162,7 @@ static BaseType_t prvResumeOTA( void )
 
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvStartOTA( void )
+static BaseType_t prvRunOTADemo( void )
 {
     /* Status indicating a successful demo or not. */
     BaseType_t xStatus = pdPASS;
@@ -2194,36 +2184,6 @@ static BaseType_t prvStartOTA( void )
 
     /* Set OTA Library interfaces.*/
     setOtaInterfaces( &otaInterfaces );
-
-    /****************************** Init MQTT ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        xStatus = prvConnectToMQTTBroker();
-
-        if( xStatus != pdPASS )
-        {
-            LogError( ( "Failed to initialize MQTT, exiting" ) );
-            xStatus = pdFAIL;
-        }
-    }
-
-    /****************************** Create MQTT Agent Task. ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        xStatus = xTaskCreate( prvMQTTAgentTask,
-                               "MQTT Agent Task",
-                               MQTT_AGENT_TASK_STACK_SIZE,
-                               NULL,
-                               MQTT_AGENT_TASK_PRIORITY,
-                               NULL );
-
-        if( xStatus != pdPASS )
-        {
-            LogError( ( "Failed to create MQTT agent task:" ) );
-        }
-    }
 
     /****************************** Init OTA Library. ******************************/
 
@@ -2293,15 +2253,6 @@ static BaseType_t prvStartOTA( void )
         }
     }
 
-    /****************************** Cleanup ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        prvDisconnectFromMQTTBroker();
-
-        ( void ) SecureSocketsTransport_Disconnect( &networkContextHttp );
-    }
-
     return xStatus;
 }
 
@@ -2344,6 +2295,8 @@ int RunOtaCoreHttpDemo( bool awsIotMqttMode,
     /* Return error status. */
     int returnStatus = EXIT_SUCCESS;
 
+    bool mqttInitialized = false;
+
     /* Maximum time in milliseconds to wait before exiting demo . */
     int16_t waitTimeoutMs = OTA_DEMO_EXIT_TIMEOUT_MS;
 
@@ -2361,14 +2314,53 @@ int RunOtaCoreHttpDemo( bool awsIotMqttMode,
         returnStatus = EXIT_FAILURE;
     }
 
+    /****************************** Init MQTT ******************************/
+
+    if( returnStatus == EXIT_SUCCESS )
+    {
+        if( prvConnectToMQTTBroker() != pdPASS )
+        {
+            LogError( ( "Failed to initialize MQTT, exiting" ) );
+            returnStatus = EXIT_FAILURE;
+        }
+        else
+        {
+            mqttInitialized = true;
+        }
+    }
+
+    /****************************** Create MQTT Agent Task. ******************************/
+
+    if( returnStatus == EXIT_SUCCESS )
+    {
+        if( xTaskCreate( prvMQTTAgentTask,
+                         "MQTT Agent Task",
+                         MQTT_AGENT_TASK_STACK_SIZE,
+                         NULL,
+                         MQTT_AGENT_TASK_PRIORITY,
+                         NULL ) != pdPASS )
+        {
+            returnStatus = EXIT_FAILURE;
+            LogError( ( "Failed to create MQTT agent task:" ) );
+        }
+    }
+
     if( returnStatus == EXIT_SUCCESS )
     {
         /* Start OTA demo. The function returns only if OTA completes successfully and a
          * shutdown of OTA is triggered for a manual restart of the device.*/
-        if( prvStartOTA() != pdPASS )
+        if( prvRunOTADemo() != pdPASS )
         {
             returnStatus = EXIT_FAILURE;
         }
+    }
+
+    /****************************** Cleanup ******************************/
+
+    if( mqttInitialized )
+    {
+        prvDisconnectFromMQTTBroker();
+        ( void ) SecureSocketsTransport_Disconnect( &networkContextHttp );
     }
 
     if( xBufferSemaphore != NULL )

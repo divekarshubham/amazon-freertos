@@ -170,16 +170,6 @@
 #define AWS_IOT_MQTT_ALPN_LENGTH                         ( ( uint16_t ) ( sizeof( AWS_IOT_MQTT_ALPN ) - 1 ) )
 
 /**
- * @brief Length of MQTT server host name.
- */
-#define AWS_IOT_ENDPOINT_LENGTH                          ( ( uint16_t ) ( sizeof( AWS_IOT_ENDPOINT ) - 1 ) )
-
-/**
- * @brief Length of client identifier.
- */
-#define CLIENT_IDENTIFIER_LENGTH                         ( ( uint16_t ) ( sizeof( CLIENT_IDENTIFIER ) - 1 ) )
-
-/**
  * @brief Timeout for receiving CONNACK packet in milli seconds.
  */
 #define CONNACK_RECV_TIMEOUT_MS                          ( 2000U )
@@ -600,13 +590,12 @@ static void prvMQTTAgentTask( void * pParam );
 static void prvMQTTAgentCmdCompleteCallback( CommandContext_t * pxCommandContext,
                                              MQTTAgentReturnInfo_t * pxReturnInfo );
 
-
 /**
  * @brief Start OTA demo.
  *
  * @return   pPASS or pdFAIL.
  */
-static BaseType_t prvStartOTA( void );
+static BaseType_t prvRunOTADemo( void );
 
 /**
  * @brief Suspend OTA demo.
@@ -759,8 +748,11 @@ static void otaAppCallback( OtaJobEvent_t event,
             /* Activate the new firmware image. */
             OTA_ActivateNewImage();
 
-            /* Initiate Shutdown of OTA Agent. */
-            OTA_Shutdown( 0 );
+            /* Initiate Shutdown of OTA Agent.
+             * If it is required that the unsubscribe operations are not
+             * performed while shutting down please set the second parameter to 0 instead of 1.
+             */
+            OTA_Shutdown( 0, 1 );
 
             /* Requires manual activation of new image.*/
             LogError( ( "New image activation failed." ) );
@@ -812,8 +804,11 @@ static void otaAppCallback( OtaJobEvent_t event,
              * new image downloaded failed.*/
             LogError( ( "Self-test of new image failed, shutting down OTA Agent." ) );
 
-            /* Initiate Shutdown of OTA Agent. */
-            OTA_Shutdown( 0 );
+            /* Initiate Shutdown of OTA Agent.
+             * If it is required that the unsubscribe operations are not
+             * performed while shutting down please set the second parameter to 0 instead of 1.
+             */
+            OTA_Shutdown( 0, 1 );
 
             break;
 
@@ -1680,7 +1675,7 @@ static BaseType_t prvResumeOTA( void )
 
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvStartOTA( void )
+static BaseType_t prvRunOTADemo( void )
 {
     /* Status indicating a successful demo or not. */
     BaseType_t xStatus = pdPASS;
@@ -1702,36 +1697,6 @@ static BaseType_t prvStartOTA( void )
 
     /* Set OTA Library interfaces.*/
     setOtaInterfaces( &otaInterfaces );
-
-    /****************************** Init MQTT ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        xStatus = prvConnectToMQTTBroker();
-
-        if( xStatus != pdPASS )
-        {
-            LogError( ( "Failed to initialize MQTT, exiting" ) );
-            xStatus = pdFAIL;
-        }
-    }
-
-    /****************************** Create MQTT Agent Task. ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        xStatus = xTaskCreate( prvMQTTAgentTask,
-                               "MQTT Agent Task",
-                               MQTT_AGENT_TASK_STACK_SIZE,
-                               NULL,
-                               MQTT_AGENT_TASK_PRIORITY,
-                               NULL );
-
-        if( xStatus != pdPASS )
-        {
-            LogError( ( "Failed to create MQTT agent task:" ) );
-        }
-    }
 
     /****************************** Init OTA Library. ******************************/
 
@@ -1801,13 +1766,6 @@ static BaseType_t prvStartOTA( void )
         }
     }
 
-    /****************************** Cleanup ******************************/
-
-    if( xStatus == pdPASS )
-    {
-        prvDisconnectFromMQTTBroker();
-    }
-
     return xStatus;
 }
 
@@ -1850,6 +1808,8 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
     /* Return error status. */
     int returnStatus = EXIT_SUCCESS;
 
+    bool mqttInitialized = false;
+
     /* Maximum time in milliseconds to wait before exiting demo . */
     int16_t waitTimeoutMs = OTA_DEMO_EXIT_TIMEOUT_MS;
 
@@ -1867,14 +1827,52 @@ int RunOtaCoreMqttDemo( bool awsIotMqttMode,
         returnStatus = EXIT_FAILURE;
     }
 
+    /****************************** Init MQTT ******************************/
+
+    if( returnStatus == EXIT_SUCCESS )
+    {
+        if( prvConnectToMQTTBroker() != pdPASS )
+        {
+            LogError( ( "Failed to initialize MQTT, exiting" ) );
+            returnStatus = EXIT_FAILURE;
+        }
+        else
+        {
+            mqttInitialized = true;
+        }
+    }
+
+    /****************************** Create MQTT Agent Task. ******************************/
+
+    if( returnStatus == EXIT_SUCCESS )
+    {
+        if( xTaskCreate( prvMQTTAgentTask,
+                         "MQTT Agent Task",
+                         MQTT_AGENT_TASK_STACK_SIZE,
+                         NULL,
+                         MQTT_AGENT_TASK_PRIORITY,
+                         NULL ) != pdPASS )
+        {
+            returnStatus = EXIT_FAILURE;
+            LogError( ( "Failed to create MQTT agent task:" ) );
+        }
+    }
+
     if( returnStatus == EXIT_SUCCESS )
     {
         /* Start OTA demo. The function returns only if OTA completes successfully and a
          * shutdown of OTA is triggered for a manual restart of the device.*/
-        if( prvStartOTA() != pdPASS )
+        if( prvRunOTADemo() != pdPASS )
         {
             returnStatus = EXIT_FAILURE;
         }
+    }
+
+    /****************************** Cleanup ******************************/
+
+    if( mqttInitialized )
+    {
+        prvDisconnectFromMQTTBroker();
     }
 
     if( xBufferSemaphore != NULL )
