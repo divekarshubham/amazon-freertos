@@ -831,9 +831,6 @@
     <ClInclude Include="..\..\..\..\..\libraries\ota\source\include\ota_private.h">
       <Filter>libraries\freertos_plus\aws\ota\include</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\..\vendors\pc\boards\windows\aws_demos\config_files\ota_config.h">
-      <Filter>demos\ota\ota_demo_core_mqtt</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\..\..\libraries\coreMQTTAgent\source\include\agent_command_pool.h">
       <Filter>libraries\coreMQTTAgent\source\include</Filter>
     </ClInclude>

@@ -208,7 +208,6 @@
     <ClInclude Include="..\..\..\..\..\libraries\ota\source\include\ota_os_interface.h" />
     <ClInclude Include="..\..\..\..\..\libraries\ota\source\include\ota_platform_interface.h" />
     <ClInclude Include="..\..\..\..\..\libraries\ota\source\include\ota_private.h" />
-    <ClInclude Include="..\..\..\..\..\vendors\pc\boards\windows\aws_demos\config_files\ota_config.h" />
     <ClInclude Include="..\..\..\..\..\vendors\pc\boards\windows\ports\posix\FreeRTOS_POSIX_portable.h" />
     <ClInclude Include="..\..\..\..\..\libraries\freertos_plus\standard\freertos_plus_posix\include\FreeRTOS_POSIX.h" />
     <ClInclude Include="..\..\..\..\..\libraries\freertos_plus\standard\freertos_plus_posix\include\FreeRTOS_POSIX_types.h" />
