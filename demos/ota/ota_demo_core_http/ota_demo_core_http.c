@@ -317,40 +317,82 @@
  * otaconfigFILE_BLOCK_SIZE + extra for headers.
  */
 
-#define OTA_NETWORK_BUFFER_SIZE                   ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
+#define OTA_NETWORK_BUFFER_SIZE          ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
 
 /**
  * @brief The maximum number of retries for connecting to server.
  */
-#define CONNECTION_RETRY_MAX_ATTEMPTS             ( 5U )
+#define CONNECTION_RETRY_MAX_ATTEMPTS    ( 5U )
 
 /**
  * @brief The maximum size of the HTTP header.
  */
-#define HTTP_HEADER_SIZE_MAX                      ( 1024U )
+#define HTTP_HEADER_SIZE_MAX             ( 1024U )
 
 /* HTTP buffers used for http request and response. */
-#define HTTP_USER_BUFFER_LENGTH                   ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
+#define HTTP_USER_BUFFER_LENGTH          ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
+
 
 /**
  * @brief The common prefix for all OTA topics.
+ *
+ * Thing name is substituted with a wildcard symbol `+`. OTA agent
+ * registers with MQTT broker with the thing name in the topic. This topic
+ * filter is used to match incoming packet received and route them to OTA.
+ * Thing name is not needed for this matching.
  */
-#define OTA_TOPIC_PREFIX                          "$aws/things/"
+#define OTA_TOPIC_PREFIX                                 "$aws/things/+/"
 
 /**
- * @brief The string used for jobs topics.
+ * @brief Wildcard topic filter for job notification.
+ * The filter is used to match the constructed job notify topic filter from OTA agent and register
+ * appropirate callback for it.
  */
-#define OTA_TOPIC_JOBS                            "jobs"
+#define OTA_JOB_NOTIFY_TOPIC_FILTER                      OTA_TOPIC_PREFIX "jobs/notify-next"
 
 /**
- * @brief The string used for streaming service topics.
+ * @brief Length of job notification topic filter.
  */
-#define OTA_TOPIC_STREAM                          "streams"
+#define OTA_JOB_NOTIFY_TOPIC_FILTER_LENGTH               ( ( uint16_t ) ( sizeof( OTA_JOB_NOTIFY_TOPIC_FILTER ) - 1 ) )
 
 /**
- * @brief The length of #OTA_TOPIC_PREFIX
+ * @brief Wildcard topic filter for matching job response messages.
+ * This topic filter is used to match the responses from OTA service for OTA agent job requests. THe
+ * topic filter is a reserved topic which is not subscribed with MQTT broker.
+ *
  */
-#define OTA_TOPIC_PREFIX_LENGTH                   ( ( uint16_t ) ( sizeof( OTA_TOPIC_PREFIX ) - 1U ) )
+#define OTA_JOB_ACCEPTED_RESPONSE_TOPIC_FILTER           OTA_TOPIC_PREFIX "jobs/$next/get/accepted"
+
+/**
+ * @brief Length of job accepted response topic filter.
+ */
+#define OTA_JOB_ACCEPTED_RESPONSE_TOPIC_FILTER_LENGTH    ( ( uint16_t ) ( sizeof( OTA_JOB_ACCEPTED_RESPONSE_TOPIC_FILTER ) - 1 ) )
+
+
+/**
+ * @brief Wildcard topic filter for matching OTA data packets.
+ *  The filter is used to match the constructed data stream topic filter from OTA agent and register
+ * appropirate callback for it.
+ */
+#define OTA_DATA_STREAM_TOPIC_FILTER           OTA_TOPIC_PREFIX  "streams/#"
+
+/**
+ * @brief Length of data stream topic filter.
+ */
+#define OTA_DATA_STREAM_TOPIC_FILTER_LENGTH    ( ( uint16_t ) ( sizeof( OTA_DATA_STREAM_TOPIC_FILTER ) - 1 ) )
+
+
+/**
+ * @brief Default topic filter for OTA.
+ * This is used to route all the packets for OTA reserved topics which OTA agent has not subscribed for.
+ */
+#define OTA_DEFAULT_TOPIC_FILTER           OTA_TOPIC_PREFIX "jobs/#"
+
+/**
+ * @brief Length of default topic filter.
+ */
+#define OTA_DEFAULT_TOPIC_FILTER_LENGTH    ( ( uint16_t ) ( sizeof( OTA_DEFAULT_TOPIC_FILTER ) - 1 ) )
+
 
 /**
  * @brief Stack size required for OTA agent task.
@@ -412,6 +454,15 @@ struct AgentMessageContext
     QueueHandle_t queue;
 };
 
+/**
+ * @brief Structure used to store the topic filter to ota callback mappings.
+ */
+typedef struct OtaTopicFilterCallback
+{
+    const char * pTopicFilter;
+    uint16_t topicFilterLength;
+    IncomingPubCallback_t callback;
+} OtaTopicFilterCallback_t;
 
 /**
  * @brief Defines the structure to use as the command callback context in this
@@ -744,22 +795,33 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
 static OtaHttpStatus_t httpDeinit( void );
 
 /**
- * @brief OTA agent task.
+ * @brief Task for OTA agent.
+ * Task runs OTA agent  loop which process OTA events. Task returns only when OTA agent is shutdown by
+ * invoking OTA_Shutdown() API.
  *
  * @param[in] pParam Can be used to pass down functionality to the agent task
  */
 static void prvOTAAgentTask( void * pParam );
 
 /**
- * @brief MQTT agent task.
+ * @brief Task for MQTT agent.
+ * Task runs MQTT agent command loop, which returns only when the user disconnects
+ * MQTT, terminates agent, or the mqtt connection is broken. If the mqtt connection is broken, the task
+ * suspends OTA agent reconnects to the broker and then resumes OTA agent.
  *
  * @param[in] pParam Can be used to pass down functionality to the agent task
  */
 static void prvMQTTAgentTask( void * pParam );
 
+
+/**
+ * @brief Callback invoked by agent for a command process completion.
+ *
+ * @param[in] pxCommandContext User context passed by caller along with the command.
+ * @param[in] pxReturnInfo Info containing return code and output of command from agent.
+ */
 static void prvMQTTAgentCmdCompleteCallback( CommandContext_t * pxCommandContext,
                                              MQTTAgentReturnInfo_t * pxReturnInfo );
-
 
 /**
  * @brief Start OTA demo.
@@ -834,6 +896,17 @@ static void prvIncomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
                                         uint16_t packetId,
                                         MQTTPublishInfo_t * pxPublishInfo );
 
+
+/**
+ * @brief Register OTA callbacks with the subscription manager.
+ *
+ * @param[in] pTopicFilter The topic filter for which a  callback needs to be registered for.
+ * @param[in] topicFilterLength length of the topic filter.
+ *
+ */
+static void prvRegisterOTACallback( const char * pTopicFilter,
+                                    uint16_t topicFilterLength );
+
 /**
  * @brief Callback registered with the OTA library that notifies the OTA agent
  * of an incoming PUBLISH containing a job document.
@@ -845,7 +918,6 @@ static void prvIncomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
 static void prvMqttJobCallback( void * pContext,
                                 MQTTPublishInfo_t * pPublish );
 
-
 /**
  * @brief Callback that notifies the OTA library when a data block is received.
  *
@@ -855,9 +927,42 @@ static void prvMqttJobCallback( void * pContext,
 static void prvMqttDataCallback( void * pContext,
                                  MQTTPublishInfo_t * pPublish );
 
+/**
+ * @brief Default callback used to receive unsolicited messages for OTA.
+ *
+ * The callback is not subscribed with MQTT broker, but only with local subscription manager.
+ * A wildcard OTA job topic is used for subscription so that all unsolicited messages related to OTA is
+ * forwarded to this callback for filteration. Right now the callback is used to filter responses to job requests
+ * from the OTA service.
+ *
+ * @param[in] pvIncomingPublishCallbackContext MQTT context which stores the connection.
+ * @param[in] pPublishInfo MQTT packet that stores the information of the file block.
+ */
+static void prvMqttDefaultCallback( void * pvIncomingPublishCallbackContext,
+                                    MQTTPublishInfo_t * pxPublishInfo );
 
-/* Callbacks to register with the Subscription Manager. */
-static IncomingPubCallback_t otaMessageCallback[ OtaNumOfMessageType ] = { prvMqttJobCallback, prvMqttDataCallback };
+/**
+ * @brief Registry for all  mqtt topic filters to their corresponding callbacks for OTA.
+ */
+static OtaTopicFilterCallback_t otaTopicFilterCallbacks[] =
+{
+    {
+        .pTopicFilter = OTA_JOB_NOTIFY_TOPIC_FILTER,
+        .topicFilterLength = OTA_JOB_NOTIFY_TOPIC_FILTER_LENGTH,
+        .callback = prvMqttJobCallback
+    },
+    {
+        .pTopicFilter = OTA_DATA_STREAM_TOPIC_FILTER,
+        .topicFilterLength = OTA_DATA_STREAM_TOPIC_FILTER_LENGTH,
+        .callback = prvMqttDataCallback
+    },
+    {
+        .pTopicFilter = OTA_DEFAULT_TOPIC_FILTER,
+        .topicFilterLength = OTA_DEFAULT_TOPIC_FILTER_LENGTH,
+        .callback = prvMqttDefaultCallback
+    }
+};
+
 
 /*-----------------------------------------------------------*/
 
@@ -1018,6 +1123,8 @@ static void prvIncomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
     }
 }
 
+
+
 /*-----------------------------------------------------------*/
 
 static void prvMqttJobCallback( void * pvIncomingPublishCallbackContext,
@@ -1050,6 +1157,26 @@ static void prvMqttJobCallback( void * pvIncomingPublishCallbackContext,
 }
 
 /*-----------------------------------------------------------*/
+
+static void prvMqttDefaultCallback( void * pvIncomingPublishCallbackContext,
+                                    MQTTPublishInfo_t * pxPublishInfo )
+{
+    bool isMatch = false;
+
+    ( void ) MQTT_MatchTopic( pxPublishInfo->pTopicName,
+                              pxPublishInfo->topicNameLength,
+                              OTA_JOB_ACCEPTED_RESPONSE_TOPIC_FILTER,
+                              OTA_JOB_ACCEPTED_RESPONSE_TOPIC_FILTER_LENGTH,
+                              &isMatch );
+
+    if( isMatch == true )
+    {
+        prvMqttJobCallback( pvIncomingPublishCallbackContext, pxPublishInfo );
+    }
+}
+
+/*-----------------------------------------------------------*/
+
 static void prvMqttDataCallback( void * pvIncomingPublishCallbackContext,
                                  MQTTPublishInfo_t * pxPublishInfo )
 {
@@ -1100,34 +1227,60 @@ static void prvMQTTAgentCmdCompleteCallback( CommandContext_t * pxCommandContext
 
 /*-----------------------------------------------------------*/
 
+static void prvRegisterOTACallback( const char * pTopicFilter,
+                                    uint16_t topicFilterLength )
+{
+    bool isMatch = false;
+    MQTTStatus_t mqttStatus = MQTTSuccess;
+    uint16_t index = 0U;
+    uint16_t numTopicFilters = sizeof( otaTopicFilterCallbacks ) / sizeof( OtaTopicFilterCallback_t );
+
+
+    bool subscriptionAdded;
+
+    ( void ) mqttStatus;
+
+    /* Match the input topic filter against the wild-card pattern of topics filters
+    * relevant for the OTA Update service to determine the type of topic filter. */
+    for( ; index < numTopicFilters; index++ )
+    {
+        mqttStatus = MQTT_MatchTopic( pTopicFilter,
+                                      topicFilterLength,
+                                      otaTopicFilterCallbacks[ index ].pTopicFilter,
+                                      otaTopicFilterCallbacks[ index ].topicFilterLength,
+                                      &isMatch );
+        assert( mqttStatus == MQTTSuccess );
+
+        if( isMatch )
+        {
+            /* Add subscription so that incoming publishes are routed to the application callback. */
+            subscriptionAdded = addSubscription( ( SubscriptionElement_t * ) xGlobalMqttAgentContext.pIncomingCallbackContext,
+                                                 pTopicFilter,
+                                                 topicFilterLength,
+                                                 otaTopicFilterCallbacks[ index ].callback,
+                                                 NULL );
+
+            if( subscriptionAdded == false )
+            {
+                LogError( ( "Failed to register a publish callback for topic %.*s.",
+                            pTopicFilter,
+                            topicFilterLength ) );
+            }
+        }
+    }
+}
+
+/*-----------------------------------------------------------*/
+
 static void prvMQTTSubscribeCompleteCallback( CommandContext_t * pxCommandContext,
                                               MQTTAgentReturnInfo_t * pxReturnInfo )
 {
     MQTTAgentSubscribeArgs_t * pSubsribeArgs;
-    bool subscriptionAdded;
-    OtaMessageType_t otaMessageType;
 
     if( pxReturnInfo->returnCode == MQTTSuccess )
     {
         pSubsribeArgs = ( MQTTAgentSubscribeArgs_t * ) ( pxCommandContext->pArgs );
-
-        otaMessageType = getOtaMessageType( pSubsribeArgs->pSubscribeInfo->pTopicFilter, pSubsribeArgs->pSubscribeInfo->topicFilterLength );
-
-        configASSERT( ( otaMessageType >= 0 ) && ( otaMessageType < OtaNumOfMessageType ) );
-
-        /* Add subscription so that incoming publishes are routed to the application callback. */
-        subscriptionAdded = addSubscription( ( SubscriptionElement_t * ) xGlobalMqttAgentContext.pIncomingCallbackContext,
-                                             pSubsribeArgs->pSubscribeInfo->pTopicFilter,
-                                             pSubsribeArgs->pSubscribeInfo->topicFilterLength,
-                                             otaMessageCallback[ otaMessageType ],
-                                             NULL );
-
-        if( subscriptionAdded == false )
-        {
-            LogError( ( "Failed to register an incoming publish callback for topic %.*s.",
-                        pSubsribeArgs->pSubscribeInfo->topicFilterLength,
-                        pSubsribeArgs->pSubscribeInfo->pTopicFilter ) );
-        }
+        prvRegisterOTACallback( pSubsribeArgs->pSubscribeInfo->pTopicFilter, pSubsribeArgs->pSubscribeInfo->topicFilterLength );
     }
 
     /* Store the result in the application defined context so the task that
@@ -1744,6 +1897,8 @@ static OtaHttpStatus_t httpRequest( uint32_t rangeStart,
     return ret;
 }
 
+/*-----------------------------------------------------------*/
+
 static OtaHttpStatus_t httpDeinit( void )
 {
     OtaHttpStatus_t ret = OtaHttpSuccess;
@@ -1753,103 +1908,6 @@ static OtaHttpStatus_t httpDeinit( void )
     return ret;
 }
 
-/*-----------------------------------------------------------*/
-
-static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
-                                           uint16_t topicFilterLength )
-{
-    int retStatus = EXIT_FAILURE;
-
-    uint16_t stringIndex = 0U, fieldLength = 0U, i = 0U;
-    OtaMessageType_t retMesageType = OtaNumOfMessageType;
-
-    /* Lookup table for OTA message string. */
-    static const char * const pOtaMessageStrings[ OtaNumOfMessageType ] =
-    {
-        OTA_TOPIC_JOBS,
-        OTA_TOPIC_STREAM
-    };
-
-    /* Check topic prefix is valid.*/
-    if( strncmp( pTopicFilter, OTA_TOPIC_PREFIX, ( size_t ) OTA_TOPIC_PREFIX_LENGTH ) == 0 )
-    {
-        stringIndex = OTA_TOPIC_PREFIX_LENGTH;
-
-        retStatus = EXIT_SUCCESS;
-    }
-
-    /* Check if thing name is valid.*/
-    if( retStatus == EXIT_SUCCESS )
-    {
-        retStatus = EXIT_FAILURE;
-
-        /* Extract the thing name.*/
-        for( ; stringIndex < topicFilterLength; stringIndex++ )
-        {
-            if( pTopicFilter[ stringIndex ] == ( char ) '/' )
-            {
-                break;
-            }
-            else
-            {
-                fieldLength++;
-            }
-        }
-
-        if( fieldLength > 0 )
-        {
-            /* Check thing name.*/
-            if( strncmp( &pTopicFilter[ stringIndex - fieldLength ],
-                         democonfigCLIENT_IDENTIFIER,
-                         ( size_t ) ( fieldLength ) ) == 0 )
-            {
-                stringIndex++;
-
-                retStatus = EXIT_SUCCESS;
-            }
-        }
-    }
-
-    /* Check the message type from topic.*/
-    if( retStatus == EXIT_SUCCESS )
-    {
-        fieldLength = 0;
-
-        /* Extract the topic type.*/
-        for( ; stringIndex < topicFilterLength; stringIndex++ )
-        {
-            if( pTopicFilter[ stringIndex ] == ( char ) '/' )
-            {
-                break;
-            }
-            else
-            {
-                fieldLength++;
-            }
-        }
-
-        if( fieldLength > 0 )
-        {
-            for( i = 0; i < OtaNumOfMessageType; i++ )
-            {
-                /* check thing name.*/
-                if( strncmp( &pTopicFilter[ stringIndex - fieldLength ],
-                             pOtaMessageStrings[ i ],
-                             ( size_t ) ( fieldLength ) ) == 0 )
-                {
-                    break;
-                }
-            }
-
-            if( i < OtaNumOfMessageType )
-            {
-                retMesageType = i;
-            }
-        }
-    }
-
-    return retMesageType;
-}
 
 /*-----------------------------------------------------------*/
 
@@ -2218,6 +2276,12 @@ static BaseType_t prvRunOTADemo( void )
         }
     }
 
+    /**
+     * Register a callback for receiving messages intended for OTA agent from broker,
+     * for which the topic has not been subscribed for.
+     */
+    prvRegisterOTACallback( OTA_DEFAULT_TOPIC_FILTER, OTA_DEFAULT_TOPIC_FILTER_LENGTH );
+
     /****************************** Start OTA ******************************/
 
     if( xStatus == pdPASS )
@@ -2252,6 +2316,14 @@ static BaseType_t prvRunOTADemo( void )
             vTaskDelay( pdMS_TO_TICKS( OTA_EXAMPLE_TASK_DELAY_MS ) );
         }
     }
+
+    /**
+     * Remvove callback for receiving messages intended for OTA agent from broker,
+     * for which the topic has not been subscribed for.
+     */
+    removeSubscription( ( SubscriptionElement_t * ) xGlobalMqttAgentContext.pIncomingCallbackContext,
+                        OTA_DEFAULT_TOPIC_FILTER,
+                        OTA_DEFAULT_TOPIC_FILTER_LENGTH );
 
     return xStatus;
 }
