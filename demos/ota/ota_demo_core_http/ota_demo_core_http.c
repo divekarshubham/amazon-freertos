@@ -317,21 +317,20 @@
  * otaconfigFILE_BLOCK_SIZE + extra for headers.
  */
 
-#define OTA_NETWORK_BUFFER_SIZE          ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
+#define OTA_NETWORK_BUFFER_SIZE                          ( otaconfigFILE_BLOCK_SIZE + OTA_MAX_URL_SIZE + 128 )
 
 /**
  * @brief The maximum number of retries for connecting to server.
  */
-#define CONNECTION_RETRY_MAX_ATTEMPTS    ( 5U )
+#define CONNECTION_RETRY_MAX_ATTEMPTS                    ( 5U )
 
 /**
  * @brief The maximum size of the HTTP header.
  */
-#define HTTP_HEADER_SIZE_MAX             ( 1024U )
+#define HTTP_HEADER_SIZE_MAX                             ( 1024U )
 
 /* HTTP buffers used for http request and response. */
-#define HTTP_USER_BUFFER_LENGTH          ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
-
+#define HTTP_USER_BUFFER_LENGTH                          ( otaconfigFILE_BLOCK_SIZE + HTTP_HEADER_SIZE_MAX )
 
 /**
  * @brief The common prefix for all OTA topics.
@@ -386,13 +385,12 @@
  * @brief Default topic filter for OTA.
  * This is used to route all the packets for OTA reserved topics which OTA agent has not subscribed for.
  */
-#define OTA_DEFAULT_TOPIC_FILTER           OTA_TOPIC_PREFIX "jobs/#"
+#define OTA_DEFAULT_TOPIC_FILTER                  OTA_TOPIC_PREFIX "jobs/#"
 
 /**
  * @brief Length of default topic filter.
  */
-#define OTA_DEFAULT_TOPIC_FILTER_LENGTH    ( ( uint16_t ) ( sizeof( OTA_DEFAULT_TOPIC_FILTER ) - 1 ) )
-
+#define OTA_DEFAULT_TOPIC_FILTER_LENGTH           ( ( uint16_t ) ( sizeof( OTA_DEFAULT_TOPIC_FILTER ) - 1 ) )
 
 /**
  * @brief Stack size required for OTA agent task.
@@ -749,16 +747,6 @@ static BaseType_t prvCreateSocketConnectionToMQTTBroker( NetworkContext_t * pNet
 static void prvDisconnectFromMQTTBroker( void );
 
 /**
- * @brief Get the message type from the topic filter being subcribed.
- *
- * @param[in] pTopicFilter The topic filter string.
- * @param[in] topicFilterLength Length of the topic filter
- * @return Message type whether it is OTA data message type or job type.
- */
-static OtaMessageType_t getOtaMessageType( const char * pTopicFilter,
-                                           uint16_t topicFilterLength );
-
-/**
  * @brief Handle HTTP response.
  *
  * @param[in] pResponse Pointer to http response buffer.
@@ -895,7 +883,6 @@ static void otaAppCallback( OtaJobEvent_t event,
 static void prvIncomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
                                         uint16_t packetId,
                                         MQTTPublishInfo_t * pxPublishInfo );
-
 
 /**
  * @brief Register OTA callbacks with the subscription manager.
