@@ -1557,6 +1557,7 @@ static void prvDisconnectFromMQTTBroker( void )
     xCommandParams.pCmdCompleteCallbackContext = &xCommandContext;
     xCommandContext.xTaskToNotify = xTaskGetCurrentTaskHandle();
     xCommandContext.pArgs = NULL;
+    xCommandContext.xReturnStatus = MQTTSendFailed;
 
     /* Disconnect MQTT session. */
     xCommandStatus = MQTTAgent_Disconnect( &xGlobalMqttAgentContext, &xCommandParams );
@@ -1915,6 +1916,7 @@ static OtaMqttStatus_t prvMqttSubscribe( const char * pTopicFilter,
     commandParams.pCmdCompleteCallbackContext = &commandContext;
     commandContext.xTaskToNotify = xTaskGetCurrentTaskHandle();
     commandContext.pArgs = &subscribeArgs;
+    commandContext.xReturnStatus = MQTTSendFailed;
 
     /* Disconnect MQTT session. */
     commandStatus = MQTTAgent_Subscribe( &xGlobalMqttAgentContext, &subscribeArgs, &commandParams );
@@ -1964,6 +1966,7 @@ static OtaMqttStatus_t prvMqttPublish( const char * const pTopic,
     commandParams.pCmdCompleteCallbackContext = &commandContext;
     commandContext.xTaskToNotify = xTaskGetCurrentTaskHandle();
     commandContext.pArgs = NULL;
+    commandContext.xReturnStatus = MQTTSendFailed;
 
     commandStatus = MQTTAgent_Publish( &xGlobalMqttAgentContext, &publishInfo, &commandParams );
     configASSERT( commandStatus == MQTTSuccess );
@@ -2011,6 +2014,7 @@ static OtaMqttStatus_t prvMqttUnSubscribe( const char * pTopicFilter,
     commandParams.pCmdCompleteCallbackContext = &commandContext;
     commandContext.xTaskToNotify = xTaskGetCurrentTaskHandle();
     commandContext.pArgs = &subscribeArgs;
+    commandContext.xReturnStatus = MQTTSendFailed;
 
     /* Unsubscribe to topics. */
     commandStatus = MQTTAgent_Unsubscribe( &xGlobalMqttAgentContext, &subscribeArgs, &commandParams );
