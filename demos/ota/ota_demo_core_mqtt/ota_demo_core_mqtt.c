@@ -135,7 +135,7 @@
 /**
  * @brief Transport timeout in milliseconds for transport send and receive.
  */
-#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 200U )
+#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 10U )
 
 /**
  * @brief The maximum number of retries for network operation with server.
@@ -207,8 +207,12 @@
 /**
  * @brief The timeout for waiting for the agent to get suspended after closing the
  * connection.
+ *
+ * Timeout value should be large enough for OTA agent to finish any pending MQTT operations
+ * and suspend itself.
+ *
  */
-#define OTA_SUSPEND_TIMEOUT_MS                           ( 5000U )
+#define OTA_SUSPEND_TIMEOUT_MS                           ( 10000U )
 
 /**
  * @brief The timeout for waiting before exiting the OTA demo.
@@ -341,7 +345,7 @@
  * to be posted to the MQTT agent should the MQTT agent's command queue be full.
  * Tasks wait in the Blocked state, so don't use any CPU time.
  */
-#define MQTT_AGENT_SEND_BLOCK_TIME_MS    ( 200 )
+#define MQTT_AGENT_SEND_BLOCK_TIME_MS    ( 200U )
 
 
 /**
@@ -349,7 +353,7 @@
  * functions.  mqttexampleMS_TO_WAIT_FOR_NOTIFICATION defines the time, in ticks,
  * to wait for such a callback.
  */
-#define MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION    ( 5000 )
+#define MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION    ( 5000U )
 
 /**
  * @brief Milliseconds per second.
@@ -360,7 +364,6 @@
  * @brief Milliseconds per FreeRTOS tick.
  */
 #define MILLISECONDS_PER_TICK                     ( MILLISECONDS_PER_SECOND / configTICK_RATE_HZ )
-
 
 /**
  * @brief Defines the structure to use as the agent IPC mechanism.
@@ -1374,7 +1377,6 @@ static void prvDisconnectFromMQTTBroker( void )
     CommandContext_t xCommandContext = { 0 };
     CommandInfo_t xCommandParams = { 0 };
     MQTTStatus_t xCommandStatus;
-    BaseType_t status;
 
     /* Disconnect from broker. */
     LogInfo( ( "Disconnecting the MQTT connection with %s.", democonfigMQTT_BROKER_ENDPOINT ) );
@@ -1389,12 +1391,10 @@ static void prvDisconnectFromMQTTBroker( void )
     xCommandStatus = MQTTAgent_Disconnect( &xGlobalMqttAgentContext, &xCommandParams );
     configASSERT( xCommandStatus == MQTTSuccess );
 
-    status = xTaskNotifyWait( 0,
-                              0,
-                              NULL,
-                              pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
-
-    configASSERT( status == pdPASS );
+    xTaskNotifyWait( 0,
+                     0,
+                     NULL,
+                     pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
 
     /* End TLS session, then close TCP connection. */
     ( void ) SecureSocketsTransport_Disconnect( &networkContextMqtt );
@@ -1410,7 +1410,6 @@ static OtaMqttStatus_t prvMqttSubscribe( const char * pTopicFilter,
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
     MQTTStatus_t commandStatus;
-    BaseType_t status = pdFAIL;
     CommandInfo_t commandParams = { 0 };
     CommandContext_t commandContext = { 0 };
     MQTTSubscribeInfo_t subscription = { 0 };
@@ -1437,11 +1436,10 @@ static OtaMqttStatus_t prvMqttSubscribe( const char * pTopicFilter,
     commandStatus = MQTTAgent_Subscribe( &xGlobalMqttAgentContext, &subscribeArgs, &commandParams );
     configASSERT( commandStatus == MQTTSuccess );
 
-    status = xTaskNotifyWait( 0,
-                              0,
-                              NULL,
-                              pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
-    configASSERT( status == pdPASS );
+    xTaskNotifyWait( 0,
+                     0,
+                     NULL,
+                     pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
 
     if( commandContext.xReturnStatus != MQTTSuccess )
     {
@@ -1466,7 +1464,6 @@ static OtaMqttStatus_t prvMqttPublish( const char * const pTopic,
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
     MQTTStatus_t commandStatus;
-    BaseType_t status = pdFAIL;
     CommandInfo_t commandParams = { 0 };
     CommandContext_t commandContext = { 0 };
     MQTTPublishInfo_t publishInfo = { 0 };
@@ -1487,11 +1484,10 @@ static OtaMqttStatus_t prvMqttPublish( const char * const pTopic,
     commandStatus = MQTTAgent_Publish( &xGlobalMqttAgentContext, &publishInfo, &commandParams );
     configASSERT( commandStatus == MQTTSuccess );
 
-    status = xTaskNotifyWait( 0,
-                              0,
-                              NULL,
-                              pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
-    configASSERT( status == pdPASS );
+    xTaskNotifyWait( 0,
+                     0,
+                     NULL,
+                     pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
 
     if( commandContext.xReturnStatus != MQTTSuccess )
     {
@@ -1514,7 +1510,6 @@ static OtaMqttStatus_t prvMqttUnSubscribe( const char * pTopicFilter,
 {
     OtaMqttStatus_t otaRet = OtaMqttSuccess;
     MQTTStatus_t commandStatus;
-    BaseType_t status = pdFAIL;
     CommandInfo_t commandParams = { 0 };
     CommandContext_t commandContext = { 0 };
     MQTTSubscribeInfo_t subscription = { 0 };
@@ -1537,11 +1532,10 @@ static OtaMqttStatus_t prvMqttUnSubscribe( const char * pTopicFilter,
     commandStatus = MQTTAgent_Unsubscribe( &xGlobalMqttAgentContext, &subscribeArgs, &commandParams );
     configASSERT( commandStatus == MQTTSuccess );
 
-    status = xTaskNotifyWait( 0,
-                              0,
-                              NULL,
-                              pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
-    configASSERT( status == pdPASS );
+    xTaskNotifyWait( 0,
+                     0,
+                     NULL,
+                     pdMS_TO_TICKS( MQTT_AGENT_MS_TO_WAIT_FOR_NOTIFICATION ) );
 
     if( commandContext.xReturnStatus != MQTTSuccess )
     {
@@ -1618,11 +1612,16 @@ static void prvMQTTAgentTask( void * pParam )
          * clean up and reconnect however the application writer prefers. */
         xMQTTStatus = MQTTAgent_CommandLoop( &xGlobalMqttAgentContext );
 
+        /* Clear Agent queue so that no any pending MQTT operations are processed. */
+        xQueueReset( xCommandQueue.queue );
+
         /* Success is returned for application intiated disconnect or termination. The socket will also be disconnected by the caller. */
         if( xMQTTStatus != MQTTSuccess )
         {
             xResult = prvSuspendOTA();
             configASSERT( xResult == pdPASS );
+
+            LogInfo( ( "Suspended OTA agent." ) );
 
             /* Reconnect TCP. */
             ( void ) SecureSocketsTransport_Disconnect( &networkContextMqtt );
@@ -1632,6 +1631,8 @@ static void prvMQTTAgentTask( void * pParam )
 
             xResult = prvResumeOTA();
             configASSERT( xResult == pdPASS );
+
+            LogInfo( ( "Resumed OTA agent." ) );
         }
     } while( xMQTTStatus != MQTTSuccess );
 
@@ -1666,6 +1667,7 @@ static BaseType_t prvSuspendOTA( void )
     }
     else
     {
+        LogError( ( "Error while trying to suspend OTA agent %d", otaRet ) );
         status = pdFAIL;
     }
 
@@ -1700,6 +1702,7 @@ static BaseType_t prvResumeOTA( void )
     }
     else
     {
+        LogError( ( "Error while trying to resume OTA agent %d", otaRet ) );
         status = pdFAIL;
     }
 
@@ -1795,10 +1798,6 @@ static BaseType_t prvRunOTADemo( void )
                            otaStatistics.otaPacketsQueued,
                            otaStatistics.otaPacketsProcessed,
                            otaStatistics.otaPacketsDropped ) );
-            }
-            else
-            {
-                LogInfo( ( "OTA Agent is suspended." ) );
             }
 
             vTaskDelay( pdMS_TO_TICKS( OTA_EXAMPLE_TASK_DELAY_MS ) );
