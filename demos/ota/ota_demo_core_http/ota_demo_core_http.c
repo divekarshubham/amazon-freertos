@@ -198,7 +198,7 @@
 /**
  * @brief Transport timeout in milliseconds for transport send and receive.
  */
-#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 200U )
+#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 50U )
 
 
 /**
@@ -275,11 +275,6 @@
  * and suspend itself.
  */
 #define OTA_SUSPEND_TIMEOUT_MS                   ( 10000U )
-
-/**
- * @brief The timeout for waiting before exiting the OTA demo.
- */
-#define OTA_DEMO_EXIT_TIMEOUT_MS                 ( 3000U )
 
 /**
  * @brief The maximum size of the file paths used in the demo.
@@ -2353,9 +2348,6 @@ int RunOtaCoreHttpDemo( bool awsIotMqttMode,
 
     bool mqttInitialized = false;
 
-    /* Maximum time in milliseconds to wait before exiting demo . */
-    int16_t waitTimeoutMs = OTA_DEMO_EXIT_TIMEOUT_MS;
-
     LogInfo( ( "OTA over HTTP demo, Application version %u.%u.%u",
                appFirmwareVersion.u.x.major,
                appFirmwareVersion.u.x.minor,
@@ -2423,15 +2415,6 @@ int RunOtaCoreHttpDemo( bool awsIotMqttMode,
     {
         /* Cleanup semaphore created for buffer operations. */
         vSemaphoreDelete( xBufferSemaphore );
-    }
-
-    /* Wait and log message before exiting demo. */
-    while( waitTimeoutMs > 0 )
-    {
-        vTaskDelay( pdMS_TO_TICKS( OTA_EXAMPLE_TASK_DELAY_MS ) );
-        waitTimeoutMs -= OTA_EXAMPLE_TASK_DELAY_MS;
-
-        LogError( ( "Exiting demo in %d sec", waitTimeoutMs / 1000 ) );
     }
 
     return returnStatus;

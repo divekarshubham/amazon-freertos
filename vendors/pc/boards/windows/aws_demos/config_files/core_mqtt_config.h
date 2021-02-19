@@ -101,4 +101,20 @@
  */
 #define MQTT_AGENT_NETWORK_BUFFER_SIZE    ( 5000 )
 
+/**
+ * @breif Timeout for which MQTT library keeps polling the transport interface,
+ * when no byte is received.
+ * The timeout is honoured only after the first byte is read and while remaining bytes
+ * are read from network interface. Keeping this timeout to a sufficiently large value so
+ * as to account for delay of receipt of a large block of message.
+ */
+#define MQTT_RECV_POLLING_TIMEOUT_MS  ( 1000U )
+
+ /**
+  * @breif Maximum time MQTT agent waits in the queue for any pending MQTT operations.
+  * The wait time is kept smallest possible to increase the responsiveness of MQTT agent
+  * while processing  pending MQTT operations as well as receive packets from network.
+  */
+#define MQTT_AGENT_MAX_EVENT_QUEUE_WAIT_TIME ( 1U )
+
 #endif /* ifndef CORE_MQTT_CONFIG_H_ */
