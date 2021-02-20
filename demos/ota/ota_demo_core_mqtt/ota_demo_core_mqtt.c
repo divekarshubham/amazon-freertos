@@ -135,7 +135,7 @@
 /**
  * @brief Transport timeout in milliseconds for transport send and receive.
  */
-#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 50U )
+#define otaexampleMQTT_TRANSPORT_SEND_RECV_TIMEOUT_MS    ( 500U )
 
 /**
  * @brief The maximum number of retries for network operation with server.
@@ -190,7 +190,7 @@
  * @brief The delay used in the main OTA Demo task loop to periodically output the OTA
  * statistics like number of packets received, dropped, processed and queued per connection.
  */
-#define OTA_EXAMPLE_TASK_DELAY_MS                        ( 1000U )
+#define OTA_EXAMPLE_TASK_DELAY_MS                ( 1000U )
 
 /**
  * @brief The timeout for waiting for the agent to get suspended after closing the
@@ -200,33 +200,33 @@
  * and suspend itself.
  *
  */
-#define OTA_SUSPEND_TIMEOUT_MS                           ( 10000U )
+#define OTA_SUSPEND_TIMEOUT_MS                   ( 10000U )
 
 /**
  * @brief The maximum size of the file paths used in the demo.
  */
-#define OTA_MAX_FILE_PATH_SIZE                           ( 260U )
+#define OTA_MAX_FILE_PATH_SIZE                   ( 260U )
 
 /**
  * @brief The maximum size of the stream name required for downloading update file
  * from streaming service.
  */
-#define OTA_MAX_STREAM_NAME_SIZE                         ( 128U )
+#define OTA_MAX_STREAM_NAME_SIZE                 ( 128U )
 
 /**
  * @brief The maximum back-off delay (in milliseconds) for retrying connection to server.
  */
-#define CONNECTION_RETRY_MAX_BACKOFF_DELAY_MS            ( 5000U )
+#define CONNECTION_RETRY_MAX_BACKOFF_DELAY_MS    ( 5000U )
 
 /**
  * @brief The base back-off delay (in milliseconds) to use for connection retry attempts.
  */
-#define CONNECTION_RETRY_BACKOFF_BASE_MS                 ( 500U )
+#define CONNECTION_RETRY_BACKOFF_BASE_MS         ( 500U )
 
 /**
  * @brief Number of milliseconds in a second.
  */
-#define NUM_MILLISECONDS_IN_SECOND                       ( 1000U )
+#define NUM_MILLISECONDS_IN_SECOND               ( 1000U )
 
 /**
  * @brief Size of the network buffer to receive the MQTT message.

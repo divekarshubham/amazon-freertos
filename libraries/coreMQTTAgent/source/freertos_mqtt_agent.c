@@ -582,16 +582,25 @@ static MQTTStatus_t processCommand( MQTTAgentContext_t * pMqttAgentContext,
      * still exists. */
     if( runProcessLoops )
     {
-        do
-        {
-            pMqttAgentContext->packetReceivedInLoop = false;
+        operationStatus = MQTT_ProcessLoop( pMQTTContext, processLoopTimeoutMs );
 
-            if( ( operationStatus == MQTTSuccess ) &&
-                ( pMQTTContext->connectStatus == MQTTConnected ) )
-            {
-                operationStatus = MQTT_ProcessLoop( pMQTTContext, processLoopTimeoutMs );
-            }
-        } while( pMqttAgentContext->packetReceivedInLoop );
+        /**
+         * TODO: Having an extra receive loop here can cause additional delay based on the
+         * the underlying socket timeout value, if there is no data expected. To have higher
+         * response for data received but still process application operations, change the
+         * agent queue blocking time MQTT_AGENT_MAX_EVENT_QUEUE_WAIT_TIME to a lower value.
+         *
+         * do
+         * {
+         * pMqttAgentContext->packetReceivedInLoop = false;
+         *
+         *  if( ( operationStatus == MQTTSuccess ) &&
+         *       ( pMQTTContext->connectStatus == MQTTConnected ) )
+         *   {
+         *       operationStatus = MQTT_ProcessLoop( pMQTTContext, processLoopTimeoutMs );
+         *   }
+         *} while( pMqttAgentContext->packetReceivedInLoop );
+         **/
     }
 
     return operationStatus;
