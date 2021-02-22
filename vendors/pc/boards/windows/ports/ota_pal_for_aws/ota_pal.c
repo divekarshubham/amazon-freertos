@@ -61,6 +61,7 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t* const C )
 {
     OtaPalMainStatus_t mainErr = OtaPalSuccess;
     OtaPalSubStatus_t subErr = 0;
+	int32_t lFileCloseResult;
 
     if( C != NULL )
     {
