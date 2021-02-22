@@ -66,9 +66,28 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t* const C )
     {
         if ( C->pFilePath != NULL )
         {
+			if ( C->pFile != NULL )
+            {
+                LogInfo( ( "File already open , closing first.\r\n" ) );
+				
+				lFileCloseResult = fclose( C->pFile ); /*lint !e482 !e586
+                                                        * Context file handle state is managed by this API. */
+				C->pFile = NULL;
+
+				if( 0 == lFileCloseResult )
+				{
+					LogInfo( ( "File closed.\r\n" ) );
+
+				}
+				else /* Failed to close file. */
+				{
+					LogError( ( "ERROR - Closing file failed.\r\n" ) );
+				}
+            }
+			
             C->pFile = fopen( ( const char * )C->pFilePath, "w+b" ); /*lint !e586
                                                                            * C standard library call is being used for portability. */
-
+			
             if ( C->pFile != NULL )
             {
                 mainErr = OtaPalSuccess;
