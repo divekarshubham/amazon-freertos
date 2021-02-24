@@ -29,8 +29,8 @@
 #include <stdlib.h>
 #include "FreeRTOS.h"
 #include "iot_crypto.h"
-#include "aws_iot_ota_pal.h"
-#include "aws_iot_ota_agent_internal.h"
+#include "ota_pal.h"
+#include "ota_private.h"
 #include "aws_ota_codesigner_certificate.h"
 
 /* Specify the OTA signature algorithm we support on this platform. */

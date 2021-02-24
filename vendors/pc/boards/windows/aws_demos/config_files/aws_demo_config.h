@@ -45,7 +45,7 @@
  *
  *  These defines are used in iot_demo_runner.h for demo selection */
 
-#define CONFIG_CORE_MQTT_MUTUAL_AUTH_DEMO_ENABLED
+#define CONFIG_OTA_HTTP_UPDATE_DEMO_ENABLED
 
 /* Default configuration for all demos. Individual demos can override these below */
 #define democonfigDEMO_STACKSIZE                                     ( configMINIMAL_STACK_SIZE * 8 )
@@ -56,6 +56,16 @@
 #define democonfigSHADOW_DEMO_TASK_STACK_SIZE                        ( configMINIMAL_STACK_SIZE * 4 )
 #define democonfigSHADOW_DEMO_TASK_PRIORITY                          ( tskIDLE_PRIORITY + 5 )
 #define shadowDemoUPDATE_TASK_STACK_SIZE                             ( configMINIMAL_STACK_SIZE * 5 )
+
+#define democonfigOTA_DEMO_TASK_STACK_SIZE                                ( 630U )
+#define democonfigOTA_DEMO_TASK_PRIORITY                             ( tskIDLE_PRIORITY )
+
+
+ /**
+  * @brief OTA Agent Priority.
+  *
+  */
+#define otaconfigAGENT_PRIORITY tskIDLE_PRIORITY
 
 #define democonfigMQTT_ECHO_TLS_NEGOTIATION_TIMEOUT                  pdMS_TO_TICKS( 12000 )
 #define democonfigMQTT_ECHO_TASK_PRIORITY                            ( tskIDLE_PRIORITY + 2 )

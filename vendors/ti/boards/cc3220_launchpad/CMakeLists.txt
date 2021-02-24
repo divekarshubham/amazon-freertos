@@ -167,7 +167,7 @@ target_sources(
 afr_mcu_port(ota)
 target_sources(
     AFR::ota::mcu_port
-    INTERFACE "${afr_ports_dir}/ota/aws_ota_pal.c"
+    INTERFACE "${afr_ports_dir}/ota_pal_for_aws/ota_pal.c"
 )
 target_link_libraries(
     AFR::ota::mcu_port
