@@ -98,7 +98,7 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t* const C )
             {
                 mainErr = OtaPalRxFileCreateFailed;
                 subErr = errno;
-                LogError( ( "ERROR - Failed to start operation: already active!\r\n" ) );
+                LogError( ( "Failed to open file, errno=%d.\r\n", errno ) );
             }
         }
         else
