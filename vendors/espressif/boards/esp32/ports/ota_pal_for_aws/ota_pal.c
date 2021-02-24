@@ -650,7 +650,7 @@ static void disable_rtc_wdt()
 OtaPalStatus_t otaPal_SetPlatformImageState( OtaFileContext_t * const C,
                                        OtaImageState_t eState )
 {
-    OtaPalMainStatus_t mainErr = OtaPalBadImageState;
+    OtaPalMainStatus_t mainErr = OtaPalSuccess;
     int state;
 
     ( void ) C;
