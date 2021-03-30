@@ -64,7 +64,7 @@ afr_module_dependencies(
 # coreMQTT demos can be downloaded.
 afr_module(NAME ota_demo_dependencies )
 
-afr_set_lib_metadata(ID "ota")
+afr_set_lib_metadata(ID "ota_demo_dependencies")
 afr_set_lib_metadata(DESCRIPTION "This library provides the interface to the over-the-air update agent, which allows devices to receive software updates securely via MQTT or HTTP.")
 afr_set_lib_metadata(DISPLAY_NAME "Over-the-air Update")
 afr_set_lib_metadata(CATEGORY "Amazon Services")
