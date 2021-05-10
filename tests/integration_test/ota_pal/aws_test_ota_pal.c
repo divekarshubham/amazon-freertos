@@ -417,6 +417,10 @@ TEST( Full_OTA_PAL, otaPal_CloseFile_InvalidSignatureBlockWritten )
         /* Try to close the file. */
         xOtaStatus = otaPal_CloseFile( &xOtaFile );
 
+        LogInfo( ( "Error received: OtaPalMainStatus_t=%s",
+                   OTA_PalStatus_strerror( OTA_PAL_MAIN_ERR( xOtaStatus ) )
+                 ) );
+
         if( ( OtaPalBadSignerCert != OTA_PAL_MAIN_ERR( xOtaStatus ) ) &&
             ( OtaPalSignatureCheckFailed != OTA_PAL_MAIN_ERR( xOtaStatus ) ) &&
             ( OtaPalFileClose != OTA_PAL_MAIN_ERR( xOtaStatus ) ) )
