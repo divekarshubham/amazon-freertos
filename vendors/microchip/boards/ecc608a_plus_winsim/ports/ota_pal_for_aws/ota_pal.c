@@ -203,7 +203,7 @@ OtaPalStatus_t otaPal_CloseFile( OtaFileContext_t * const C )
         if( C->pSignature != NULL )
         {
             /* Verify the file signature, close the file and return the signature verification result. */
-            mainErr = otaPal_CheckFileSignature( C );
+            mainErr = OTA_PAL_MAIN_ERR(otaPal_CheckFileSignature( C ));
         }
         else
         {
@@ -241,6 +241,16 @@ OtaPalStatus_t otaPal_CloseFile( OtaFileContext_t * const C )
         LogError(( "Invalid context." ));
         mainErr = OtaPalNullFileContext;
     }
+
+    LogInfo( ( "Error set: %d\nOtaPalMainStatus_t=%s",
+                   mainErr,
+                   OTA_PalStatus_strerror( mainErr )
+                 ) );
+    
+    LogInfo( ( "Error after combining with suberror:%d \nOtaPalMainStatus_t=%s",
+                    OTA_PAL_COMBINE_ERR( mainErr, subErr ),
+                   OTA_PalStatus_strerror( OTA_PAL_MAIN_ERR( OTA_PAL_COMBINE_ERR( mainErr, subErr ) ) )
+                 ) );
 
     return OTA_PAL_COMBINE_ERR( mainErr, subErr );
 }
@@ -327,6 +337,16 @@ static OtaPalStatus_t otaPal_CheckFileSignature( OtaFileContext_t * const C )
         /* Invalid OTA context or file pointer. */
         mainErr = OtaPalNullFileContext;
     }
+
+    LogInfo( ( "Error set: %d\nOtaPalMainStatus_t=%s",
+                   mainErr,
+                   OTA_PalStatus_strerror( mainErr )
+                 ) );
+    
+    LogInfo( ( "Error after combining with suberror:%d \nOtaPalMainStatus_t=%s",
+                    OTA_PAL_COMBINE_ERR( mainErr, 0 ),
+                   OTA_PalStatus_strerror( OTA_PAL_MAIN_ERR( OTA_PAL_COMBINE_ERR( mainErr, 0 ) ) )
+                 ) );
 
     return OTA_PAL_COMBINE_ERR( mainErr, 0 );
 }
