@@ -1818,12 +1818,6 @@ static BaseType_t prvRunOTADemo( void )
         }
     }
 
-    /**
-     * Register a callback for receiving messages intended for OTA agent from broker,
-     * for which the topic has not been subscribed for.
-     */
-    prvRegisterOTACallback( otaexampleDEFAULT_TOPIC_FILTER, otaexampleDEFAULT_TOPIC_FILTER_LENGTH );
-
     /****************************** Start OTA ******************************/
 
     if( xStatus == pdPASS )
@@ -1854,14 +1848,6 @@ static BaseType_t prvRunOTADemo( void )
             vTaskDelay( pdMS_TO_TICKS( otaexampleEXAMPLE_TASK_DELAY_MS ) );
         }
     }
-
-    /**
-     * Remvove callback for receiving messages intended for OTA agent from broker,
-     * for which the topic has not been subscribed for.
-     */
-    removeSubscription( ( SubscriptionElement_t * ) xGlobalMqttAgentContext.pIncomingCallbackContext,
-                        otaexampleDEFAULT_TOPIC_FILTER,
-                        otaexampleDEFAULT_TOPIC_FILTER_LENGTH );
 
     return xStatus;
 }
@@ -1934,6 +1920,12 @@ int RunOtaCoreMqttDemo( bool xAwsIotMqttMode,
         }
     }
 
+    /**
+     * Register a callback for receiving messages intended for OTA agent from broker,
+     * for which the topic has not been subscribed for.
+     */
+    prvRegisterOTACallback( otaexampleDEFAULT_TOPIC_FILTER, otaexampleDEFAULT_TOPIC_FILTER_LENGTH );
+
     /************************ Create MQTT Agent Task. ************************/
 
     if( xDemoStatus == pdPASS )
@@ -1961,6 +1953,14 @@ int RunOtaCoreMqttDemo( bool xAwsIotMqttMode,
     }
 
     /****************************** Cleanup ******************************/
+
+    /**
+     * Remvove callback for receiving messages intended for OTA agent from broker,
+     * for which the topic has not been subscribed for.
+     */
+    removeSubscription( ( SubscriptionElement_t * ) xGlobalMqttAgentContext.pIncomingCallbackContext,
+                        otaexampleDEFAULT_TOPIC_FILTER,
+                        otaexampleDEFAULT_TOPIC_FILTER_LENGTH );
 
     if( xMqttInitialized == pdTRUE )
     {
