@@ -1476,7 +1476,7 @@ static BaseType_t prvCreateSocketConnectionToMQTTBroker( NetworkContext_t * pxNe
                                        RETRY_MAX_BACKOFF_DELAY_MS,
                                        RETRY_MAX_ATTEMPTS );
 
-    LogWarn((" Attempt: %d Memory before creating the connection: %zd", usCounterMqtt, xPortGetFreeHeapSize()));
+    LogWarn((" Attempt: %d Memory before creating the mqtt connection: %zd", usCounterMqtt, xPortGetFreeHeapSize()));
     /* Attempt to connect to MQTT broker. If connection fails, retry after
      * a timeout. Timeout value will exponentially increase till maximum
      * attempts are reached.
@@ -1500,7 +1500,7 @@ static BaseType_t prvCreateSocketConnectionToMQTTBroker( NetworkContext_t * pxNe
         }
     } while( ( xNetworkStatus != TRANSPORT_SOCKET_STATUS_SUCCESS ) && ( xStatus == pdPASS ) );
 
-    LogWarn((" Attempt: %d Memory after creating the connection: %zd", usCounterMqtt, xPortGetFreeHeapSize()));
+    LogWarn((" Attempt: %d Memory after creating the mqtt connection: %zd", usCounterMqtt, xPortGetFreeHeapSize()));
     usCounterMqtt++;
 
     return xStatus;
@@ -1686,7 +1686,7 @@ static int32_t prvConnectToS3Server( NetworkContext_t * pxNetworkContext,
         xServerInfo.hostNameLength = xServerHostLength;
         xServerInfo.port = democonfigHTTPS_PORT;
 
-        LogWarn((" Attempt: %d Memory before creating the connection: %zd", usCounterHttp, xPortGetFreeHeapSize()));
+        LogWarn((" Attempt: %d Memory before creating the http connection: %zd", usCounterHttp, xPortGetFreeHeapSize()));
         /* Attempt to connect to MQTT broker. If connection fails, retry after
          * a timeout. Timeout value will exponentially increase till maximum
          * attempts are reached.
@@ -1711,7 +1711,7 @@ static int32_t prvConnectToS3Server( NetworkContext_t * pxNetworkContext,
         } while( ( xNetworkStatus != TRANSPORT_SOCKET_STATUS_SUCCESS ) && ( xStatus == pdPASS ) );
 
         returnStatus = ( xNetworkStatus == TRANSPORT_SOCKET_STATUS_SUCCESS ) ? pdPASS : pdFAIL;
-        LogWarn((" Attempt: %d Memory before creating the connection: %zd", usCounterHttp, xPortGetFreeHeapSize()));
+        LogWarn((" Attempt: %d Memory after creating the http connection: %zd", usCounterHttp, xPortGetFreeHeapSize()));
         usCounterHttp++;
     }
 
