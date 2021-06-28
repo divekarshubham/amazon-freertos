@@ -179,9 +179,9 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
     _u32 ulToken = OTA_VENDOR_TOKEN; /* TI platform requires file tokens. We use a vendor token. */
     uint32_t ulFlags;                /* Flags used when opening the OTA FW image file. */
     int32_t lResult, lRetry;
-    _u8 pcFilename[] = "/sys/";
     OtaPalMainStatus_t mainErr = OtaPalUninitialized;
     OtaPalSubStatus_t subErr = 0;
+    _u8 pcFilename[] = "/sys/";
 
     C->pFile = ( int32_t ) NULL;
 
@@ -200,22 +200,10 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
                             SL_FS_CREATE_PUBLIC_WRITE | SL_FS_WRITE_BUNDLE_FILE |
                             SL_FS_CREATE_SECURE | SL_FS_CREATE_VENDOR_TOKEN |
                             SL_FS_CREATE_MAX_SIZE( OTA_MAX_MCU_IMAGE_SIZE ) );
-                if( C->fileType != 0 )
-                {
-                    if( !strstr( C->pFilePath, "/sys/") )
-                    {
-                        strcat(pcFilename, C->pFilePath);
-                        LogInfo( ( "Receive file with filetype: %u\n Appended /sys/: %s", C->fileType, pcFilename ) );
-                    }
-
-                    lResult = sl_FsOpen( pcFilename, ( _u32 ) ulFlags, ( _u32 * ) &ulToken );
-                }
-                else{
-                    /* The file remains open until the OTA agent calls otaPal_CloseFile() after transfer or failure. */
-                lResult = sl_FsOpen( ( _u8 * ) C->pFilePath, ( _u32 ) ulFlags, ( _u32 * ) &ulToken );
-                }
-                
-                
+                /* The file remains open until the OTA agent calls otaPal_CloseFile() after transfer or failure. */
+                strcat(pcFilename, C->pFilePath);
+                LogInfo( ( "Filename: %s", pcFilename ) );
+                lResult = sl_FsOpen( ( _u8 * ) pcFilename, ( _u32 ) ulFlags, ( _u32 * ) &ulToken );
 
                 if( lResult > 0 )
                 {
