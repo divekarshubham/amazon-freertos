@@ -196,6 +196,7 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
         {
             ulFlags |= SL_FS_CREATE_PUBLIC_WRITE;
             ulFlags |= SL_FS_CREATE_SECURE;
+            ulFlags |= SL_FS_CREATE_VENDOR_TOKEN;
             lResult = prvCreateBootInfoFile();
         }
         else{
