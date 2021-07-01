@@ -211,7 +211,7 @@ OtaPalStatus_t otaPal_CreateFileForRx( OtaFileContext_t * const C )
         {
             ulFlags = ( SL_FS_CREATE | SL_FS_OVERWRITE | SL_FS_CREATE_FAILSAFE | /*lint -e9027 -e9028 -e9029 We don't own the TI problematic macros. */
                         SL_FS_CREATE_PUBLIC_WRITE | SL_FS_WRITE_BUNDLE_FILE |
-                        SL_FS_CREATE_SECURE | SL_FS_CREATE_VENDOR_TOKEN;
+                        SL_FS_CREATE_SECURE | SL_FS_CREATE_VENDOR_TOKEN ) ;
 
             /* Create a boot info file for configuring watchdog timer. */
             lResult = prvCreateBootInfoFile();
